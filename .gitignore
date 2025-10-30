@@ -119,3 +119,13 @@ dependency-check-report.*
 # Local config not for source
 config.local.json
 
+# Installer artifacts (WiX)
+installer/publish/
+installer/Harvest.wxs
+installer/*.msi
+*.msi
+installer/obj/
+installer/*.wixobj
+installer/*.wixpdb
+installer/*.cab
+

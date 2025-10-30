@@ -52,6 +52,37 @@ dotnet publish src/ComingUpNextTray/ComingUpNextTray.csproj -c Release -r win-x6
 ```
 The output folder `publish` will contain the EXE.
 
+### MSI Installer (WiX v5)
+An example WiX v5 setup is provided under `installer/`.
+
+Prerequisites:
+- .NET 9 SDK
+- WiX Toolset v5 (installed automatically by the build script if missing)
+
+Build the MSI:
+```powershell
+cd installer
+./build.ps1 -Configuration Release -Runtime win-x64 -Version 1.0.0
+```
+Result: `installer/ComingUpNextTray-1.0.0.msi`
+
+Adjustments:
+- Update GUID placeholders in `installer/Product.wxs` (generate new GUIDs via `New-Guid`).
+- Change `Manufacturer`, `Version`, or add more components (e.g., config file defaults).
+- To auto-start for current user you can add a shortcut component pointing to Startup folder or set Run key (advanced customization).
+
+Silent install example:
+```powershell
+msiexec /i ComingUpNextTray-1.0.0.msi /qn
+```
+
+Uninstall:
+```powershell
+msiexec /x ComingUpNextTray-1.0.0.msi /qn
+```
+
+If you modify published output location or add resources, re-run the build script to regenerate harvested components.
+
 ## Auto Start (Optional)
 Create a shortcut to the published EXE in:
 ```text
