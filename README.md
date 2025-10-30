@@ -3,11 +3,12 @@
 A lightweight Windows 11 tray application that displays your next upcoming meeting from a public calendar ICS (.ics) feed.
 
 ## Features
-- Tray icon with dynamic tooltip showing: `Next: <Title> (In X min|In Y h|Mon HH:mm)`
-- Auto balloon notification when a meeting is within 15 minutes (once per meeting)
-- Context menu: Open Meeting, Refresh, Set Calendar URL, Exit
-- Stores configuration in `%APPDATA%/ComingUpNext/config.json`
-- Lightweight ICS parsing (skips malformed events)
+ - Tray icon with dynamic tooltip showing: `Next: <Title> (In X min|In Y h|Mon HH:mm)`
+ - Auto balloon notification when a meeting is within 15 minutes (once per meeting)
+ - Context menu: Open Meeting, Refresh, Set Calendar URL, Exit
+ - Stores configuration in `%APPDATA%/ComingUpNext/config.json`
+ - Lightweight ICS parsing (skips malformed events)
+ - Configurable refresh interval (default 5 minutes) via `RefreshMinutes` in `config.json` or "Set Refresh Minutes" context menu option
 
 ## ICS Format Expectations
 Provide a publicly accessible `.ics` URL (can be from Outlook, Google Calendar, etc.). The app reads `VEVENT` blocks and uses:
@@ -43,6 +44,7 @@ dotnet run
 ```
 
 On first run, use the tray icon context menu "Set Calendar URL" to paste the ICS URL.
+Optionally adjust the refresh interval with "Set Refresh Minutes" (1-1440). The default is 5 minutes.
 
 ## Packaging
 Produce a single-file self-contained executable:
@@ -90,10 +92,11 @@ Create a shortcut to the published EXE in:
 ```
 
 ## Future Improvements
-- Add Windows Toast notifications using Windows App SDK for richer UX
-- Optional filtering (e.g. ignore all-day events or past events spanning multiple days)
-- Unit tests project (ICS parsing, time formatting)
-- Auto-update mechanism
+ - Add Windows Toast notifications using Windows App SDK for richer UX
+ - Optional filtering (e.g. ignore all-day events or past events spanning multiple days)
+ - Unit tests project (ICS parsing, time formatting)
+ - Auto-update mechanism
+ - Persist additional UI preferences (e.g., balloon notifications toggle)
 
 ## License
 See `LICENSE`.

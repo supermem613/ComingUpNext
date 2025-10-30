@@ -37,7 +37,6 @@ static class Program
         public TrayApplication()
         {
             _configPath = GetConfigPath();
-            LoadConfig();
             _notifyIcon = new NotifyIcon
             {
                 Icon = SystemIcons.Application,
@@ -48,19 +47,22 @@ static class Program
             ctxMenu.Items.Add("Open Meeting", null, (_, _) => OpenMeeting());
             ctxMenu.Items.Add("Refresh", null, async (_, _) => await RefreshAsync());
             ctxMenu.Items.Add("Set Calendar URL", null, (_, _) => PromptForUrl());
+            ctxMenu.Items.Add("Set Refresh Minutes", null, (_, _) => PromptForRefreshMinutes());
             ctxMenu.Items.Add(new ToolStripSeparator());
             ctxMenu.Items.Add("Exit", null, (_, _) => Exit());
             _notifyIcon.ContextMenuStrip = ctxMenu;
             _notifyIcon.DoubleClick += (_, _) => OpenMeeting();
-
-            _refreshTimer = new System.Windows.Forms.Timer { Interval = 5 * 60 * 1000 }; // 5 min
+            // Create timers with default values; config may adjust refresh interval after loading.
+            _refreshTimer = new System.Windows.Forms.Timer { Interval = 5 * 60 * 1000 }; // default 5 min, can be overridden by config
             _refreshTimer.Tick += async (_, _) => await RefreshAsync();
-            _refreshTimer.Start();
 
             _uiTimer = new System.Windows.Forms.Timer { Interval = 60 * 1000 }; // 1 min
             _uiTimer.Tick += (_, _) => UpdateUi();
             _uiTimer.Start();
 
+            // Load config (may update interval) then start refresh timer.
+            LoadConfig();
+            _refreshTimer.Start();
             // initial load
             _ = RefreshAsync();
         }
@@ -97,6 +99,28 @@ static class Program
             _entries = entries;
             _nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now);
             UpdateUi();
+        }
+
+        private void PromptForRefreshMinutes()
+        {
+            using var form = new Form { Width = 300, Height = 140, Text = "Set Refresh Minutes" };
+            var currentMins = _refreshTimer.Interval / 1000 / 60;
+            var lbl = new Label { Left = 10, Top = 15, Width = 260, Text = "Refresh interval (minutes):" };
+            var num = new NumericUpDown { Left = 10, Top = 40, Width = 80, Minimum = 1, Maximum = 1440, Value = currentMins }; // up to 1 day
+            var btnOk = new Button { Text = "Save", Left = 110, Width = 80, Top = 70, DialogResult = DialogResult.OK };
+            var btnCancel = new Button { Text = "Cancel", Left = 200, Width = 80, Top = 70, DialogResult = DialogResult.Cancel };
+            form.Controls.Add(lbl);
+            form.Controls.Add(num);
+            form.Controls.Add(btnOk);
+            form.Controls.Add(btnCancel);
+            form.AcceptButton = btnOk;
+            form.CancelButton = btnCancel;
+            if (form.ShowDialog() == DialogResult.OK)
+            {
+                var mins = (int)num.Value;
+                _refreshTimer.Interval = mins * 60 * 1000;
+                SaveConfig(); // persist new value
+            }
         }
 
         private void OpenMeeting()
@@ -234,6 +258,14 @@ static class Program
                     var json = File.ReadAllText(_configPath);
                     var doc = JsonSerializer.Deserialize<ConfigModel>(json);
                     _calendarUrl = doc?.CalendarUrl;
+                    if (doc?.RefreshMinutes is int mins && mins > 0 && mins < 24 * 60)
+                    {
+                        // Update timer interval if different from current (allow only after timers exist)
+                        if (_refreshTimer != null)
+                        {
+                            _refreshTimer.Interval = mins * 60 * 1000;
+                        }
+                    }
                 }
             }
             catch { }
@@ -243,7 +275,18 @@ static class Program
         {
             try
             {
-                var model = new ConfigModel { CalendarUrl = _calendarUrl };
+                // Preserve existing refresh minutes if file exists
+                int? refreshMinutes = null;
+                try
+                {
+                    if (File.Exists(_configPath))
+                    {
+                        var existing = JsonSerializer.Deserialize<ConfigModel>(File.ReadAllText(_configPath));
+                        if (existing?.RefreshMinutes is int m && m > 0) refreshMinutes = m;
+                    }
+                }
+                catch { }
+                var model = new ConfigModel { CalendarUrl = _calendarUrl, RefreshMinutes = refreshMinutes ?? (_refreshTimer.Interval / 1000 / 60) };
                 var json = JsonSerializer.Serialize(model, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_configPath, json);
             }
@@ -269,6 +312,7 @@ static class Program
     private sealed class ConfigModel
     {
         public string? CalendarUrl { get; set; }
+        public int? RefreshMinutes { get; set; }
     }
 
     // Public wrapper for tests so they can verify color thresholds without instantiating TrayApplication.
