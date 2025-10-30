@@ -60,4 +60,20 @@ public class NextMeetingSelectorTests
         var next = NextMeetingSelector.GetNextMeeting(meetings, now);
         Assert.Equal("A", next!.Title);
     }
+
+    [Theory]
+    [InlineData(-1, "DarkGray", "White")]
+    [InlineData(0, "DarkGray", "White")]
+    [InlineData(1, "Red", "White")]
+    [InlineData(4, "Red", "White")]
+    [InlineData(5, "Gold", "Black")]
+    [InlineData(14, "Gold", "Black")]
+    [InlineData(15, "Green", "White")]
+    [InlineData(120, "Green", "White")]
+    public void GetColorsForMinutes_Thresholds(int minutes, string expectedBgName, string expectedFgName)
+    {
+        var (bg, fg) = ComingUpNextTray.Program.GetColorsForMinutesForTest(minutes);
+        Assert.Equal(expectedBgName, bg.Name);
+        Assert.Equal(expectedFgName, fg.Name);
+    }
 }

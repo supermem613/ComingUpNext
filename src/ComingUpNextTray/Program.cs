@@ -58,7 +58,7 @@ static class Program
             _refreshTimer.Start();
 
             _uiTimer = new System.Windows.Forms.Timer { Interval = 60 * 1000 }; // 1 min
-            _uiTimer.Tick += (_, _) => UpdateTooltipAndPopup();
+            _uiTimer.Tick += (_, _) => UpdateUi();
             _uiTimer.Start();
 
             // initial load
@@ -90,13 +90,13 @@ static class Program
             {
                 _entries = Array.Empty<CalendarEntry>();
                 _nextMeeting = null;
-                UpdateTooltipAndPopup();
+                UpdateUi();
                 return;
             }
             var entries = await _calendarService.FetchAsync(_calendarUrl);
             _entries = entries;
             _nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now);
-            UpdateTooltipAndPopup();
+            UpdateUi();
         }
 
         private void OpenMeeting()
@@ -115,12 +115,64 @@ static class Program
             }
         }
 
-        private void UpdateTooltipAndPopup()
+        private void UpdateUi()
         {
             _nextMeeting = NextMeetingSelector.GetNextMeeting(_entries, DateTime.Now);
-            var tooltip = NextMeetingSelector.FormatTooltip(_nextMeeting, DateTime.Now);
+            var now = DateTime.Now;
+            var tooltip = NextMeetingSelector.FormatTooltip(_nextMeeting, now);
             _notifyIcon.Text = TruncateTooltip(tooltip);
+            UpdateIcon(now);
             MaybeShowBalloon();
+        }
+
+        private void UpdateIcon(DateTime now)
+        {
+            try
+            {
+                int minutes = 0;
+                if (_nextMeeting != null)
+                {
+                    var delta = _nextMeeting.StartTime - now;
+                    if (delta.TotalMinutes > 0 && delta.TotalMinutes < 1000) // cap large values
+                        minutes = (int)Math.Round(delta.TotalMinutes);
+                    else if (delta.TotalMinutes <= 0)
+                        minutes = 0; // started or starting now
+                }
+
+                using var bmp = new Bitmap(32, 32);
+                using (var g = Graphics.FromImage(bmp))
+                {
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    var (bg, fg) = GetColorsForMinutes(minutes);
+                    using var bgBrush = new SolidBrush(bg);
+                    g.FillRectangle(bgBrush, new Rectangle(0, 0, 32, 32));
+
+                    string text = minutes.ToString();
+                    if (minutes >= 100) text = "99+"; // avoid overflow
+                    using var font = new Font(FontFamily.GenericSansSerif, minutes >= 100 ? 10 : (minutes >= 10 ? 16 : 18), FontStyle.Bold);
+                    var size = g.MeasureString(text, font);
+                    using var fgBrush = new SolidBrush(fg);
+                    g.DrawString(text, font, fgBrush, (32 - size.Width) / 2f, (32 - size.Height) / 2f - 2);
+                }
+
+                // Dispose previous icon to avoid handle leak
+                var oldIcon = _notifyIcon.Icon;
+                _notifyIcon.Icon = Icon.FromHandle(bmp.GetHicon());
+                oldIcon?.Dispose();
+            }
+            catch
+            {
+                // fallback silently
+            }
+        }
+
+        internal static (Color background, Color foreground) GetColorsForMinutes(int minutes)
+        {
+            // thresholds: <5 red, <15 yellow, otherwise green. When 0 (started), use dark gray background & white text.
+            if (minutes <= 0) return (Color.DarkGray, Color.White);
+            if (minutes < 5) return (Color.Red, Color.White);
+            if (minutes < 15) return (Color.Gold, Color.Black);
+            return (Color.Green, Color.White);
         }
 
         private void MaybeShowBalloon()
@@ -218,4 +270,7 @@ static class Program
     {
         public string? CalendarUrl { get; set; }
     }
+
+    // Public wrapper for tests so they can verify color thresholds without instantiating TrayApplication.
+    public static (Color background, Color foreground) GetColorsForMinutesForTest(int minutes) => TrayApplication.GetColorsForMinutes(minutes);
 }
