@@ -33,6 +33,8 @@ static class Program
         private string? _calendarUrl;
         private readonly string _configPath;
         private bool _disposed;
+        private bool _isManualRefreshing;
+        private readonly SemaphoreSlim _refreshGate = new(1, 1); // prevent overlapping refresh calls
 
         public TrayApplication()
         {
@@ -45,7 +47,10 @@ static class Program
             };
             var ctxMenu = new ContextMenuStrip();
             ctxMenu.Items.Add("Open Meeting", null, (_, _) => OpenMeeting());
-            ctxMenu.Items.Add("Refresh", null, async (_, _) => await RefreshAsync());
+            // Manual refresh item (separate from timer) with disable logic while in progress.
+            var refreshItem = new ToolStripMenuItem("Refresh");
+            refreshItem.Click += async (_, _) => await ManualRefreshAsync(refreshItem);
+            ctxMenu.Items.Add(refreshItem);
             ctxMenu.Items.Add("Set Calendar URL", null, (_, _) => PromptForUrl());
             ctxMenu.Items.Add("Set Refresh Minutes", null, (_, _) => PromptForRefreshMinutes());
             ctxMenu.Items.Add(new ToolStripSeparator());
@@ -88,17 +93,42 @@ static class Program
 
         private async Task RefreshAsync()
         {
-            if (string.IsNullOrWhiteSpace(_calendarUrl))
+            // Skip if already refreshing (timer or manual). Use non-blocking attempt.
+            if (!await _refreshGate.WaitAsync(0)) return;
+            try
             {
-                _entries = Array.Empty<CalendarEntry>();
-                _nextMeeting = null;
+                if (string.IsNullOrWhiteSpace(_calendarUrl))
+                {
+                    _entries = Array.Empty<CalendarEntry>();
+                    _nextMeeting = null;
+                    UpdateUi();
+                    return;
+                }
+                var entries = await _calendarService.FetchAsync(_calendarUrl);
+                _entries = entries;
+                _nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now);
                 UpdateUi();
-                return;
             }
-            var entries = await _calendarService.FetchAsync(_calendarUrl);
-            _entries = entries;
-            _nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now);
-            UpdateUi();
+            finally
+            {
+                _refreshGate.Release();
+            }
+        }
+
+        private async Task ManualRefreshAsync(ToolStripMenuItem? item)
+        {
+            if (_isManualRefreshing) return; // avoid double-click
+            _isManualRefreshing = true;
+            if (item != null) item.Enabled = false;
+            try
+            {
+                await RefreshAsync();
+            }
+            finally
+            {
+                if (item != null) item.Enabled = true;
+                _isManualRefreshing = false;
+            }
         }
 
         private void PromptForRefreshMinutes()

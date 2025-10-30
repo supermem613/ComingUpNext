@@ -45,6 +45,7 @@ dotnet run
 
 On first run, use the tray icon context menu "Set Calendar URL" to paste the ICS URL.
 Optionally adjust the refresh interval with "Set Refresh Minutes" (1-1440). The default is 5 minutes.
+You can force an immediate reload at any time with the "Refresh" context menu item (it disables while fetching to avoid overlapping requests).
 
 ## Packaging
 Produce a single-file self-contained executable:
