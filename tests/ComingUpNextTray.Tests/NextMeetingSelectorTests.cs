@@ -76,4 +76,24 @@ public class NextMeetingSelectorTests
         Assert.Equal(expectedBgName, bg.Name);
         Assert.Equal(expectedFgName, fg.Name);
     }
+
+    [Theory]
+    [InlineData(-5, "0")] // started
+    [InlineData(0, "0")] // now
+    [InlineData(1, "1")] // minute
+    [InlineData(59, "59")] // under hour
+    [InlineData(60, "1h")] // exactly hour
+    [InlineData(119, "2h")] // ~2h
+    [InlineData(120, "2h")] // 2h
+    [InlineData(600, "10h")] // 10h
+    [InlineData(1439, "24h")] // rounds to 24h (just under a day)
+    [InlineData(1440, "1d")] // 1 day
+    [InlineData(2880, "2d")] // 2 days
+    public void FormatMinutesForIcon_Cases(int minutes, string expected)
+    {
+        var actual = typeof(ComingUpNextTray.Program)
+            .GetMethod("FormatMinutesForIcon", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.InvokeMethod)!
+            .Invoke(null, new object[] { minutes });
+        Assert.Equal(expected, actual);
+    }
 }

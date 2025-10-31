@@ -201,9 +201,15 @@ static class Program
                     using var bgBrush = new SolidBrush(bg);
                     g.FillRectangle(bgBrush, new Rectangle(0, 0, 32, 32));
 
-                    string text = minutes.ToString();
-                    if (minutes >= 100) text = "99+"; // avoid overflow
-                    using var font = new Font(FontFamily.GenericSansSerif, minutes >= 100 ? 10 : (minutes >= 10 ? 16 : 18), FontStyle.Bold);
+                    string text = FormatMinutesForIcon(minutes);
+                    int baseSize = text.Length switch
+                    {
+                        1 => 18,
+                        2 => 16,
+                        3 => 14,
+                        _ => 12
+                    };
+                    using var font = new Font(FontFamily.GenericSansSerif, baseSize, FontStyle.Bold);
                     var size = g.MeasureString(text, font);
                     using var fgBrush = new SolidBrush(fg);
                     g.DrawString(text, font, fgBrush, (32 - size.Width) / 2f, (32 - size.Height) / 2f - 2);
@@ -218,6 +224,23 @@ static class Program
             {
                 // fallback silently
             }
+        }
+
+        // Internal for test visibility
+        internal static string FormatMinutesForIcon(int minutes)
+        {
+            // Negative or zero -> show 0 (meeting started)
+            if (minutes <= 0) return "0";
+            if (minutes < 60) return minutes.ToString();
+            if (minutes < 1440)
+            {
+                var hours = (int)Math.Round(minutes / 60.0);
+                if (hours < 1) hours = 1;
+                return hours + "h";
+            }
+            var days = (int)Math.Round(minutes / 1440.0);
+            if (days < 1) days = 1;
+            return days + "d";
         }
 
         internal static (Color background, Color foreground) GetColorsForMinutes(int minutes)
