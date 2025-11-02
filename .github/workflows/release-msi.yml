@@ -26,9 +26,9 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Extract version from csproj
-          id: version
-          shell: pwsh
-          run: |
+        id: version
+        shell: pwsh
+        run: |
             Write-Host "Reading version from $env:PROJECT_CSProj"
             $content = Get-Content $env:PROJECT_CSProj -Raw
             if (-not $content) { Write-Error 'Could not read csproj content.' }
