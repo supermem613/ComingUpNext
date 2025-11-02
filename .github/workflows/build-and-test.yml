@@ -34,7 +34,7 @@ jobs:
         .\build.ps1
 
     - name: Publish MSI artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: MSI
         path: installer/publish/*.msi
