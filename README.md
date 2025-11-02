@@ -10,6 +10,8 @@ A lightweight Windows 11 tray application that displays your next upcoming meeti
  - Lightweight ICS parsing (skips malformed events)
  - Configurable refresh interval (default 5 minutes) via `RefreshMinutes` in `config.json` or "Set Refresh Minutes" context menu option
 
+![Screenshot](screenshot.png)
+
 ## ICS Format Expectations
 Provide a publicly accessible `.ics` URL (can be from Outlook, Google Calendar, etc.). The app reads `VEVENT` blocks and uses:
 
