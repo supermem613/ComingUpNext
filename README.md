@@ -53,7 +53,7 @@ Produce a single-file self-contained executable:
 ```powershell
 dotnet publish src/ComingUpNextTray/ComingUpNextTray.csproj -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeAllContentForSelfExtract=true -o publish
 ```
-The output folder `publish` will contain the EXE.
+The output folder `publish` will contain the EXE. Version metadata (AssemblyVersion/FileVersion/Product Version) is taken from the `<Version>` property inside `ComingUpNextTray.csproj`.
 
 ### MSI Installer (WiX v5)
 An example WiX v5 setup is provided under `installer/`.
@@ -62,12 +62,18 @@ Prerequisites:
 - .NET 9 SDK
 - WiX Toolset v5 (installed automatically by the build script if missing)
 
-Build the MSI:
+Build the MSI (auto-reads `<Version>` from the csproj):
 ```powershell
 cd installer
-./build.ps1 -Configuration Release -Runtime win-x64 -Version 1.0.0
+./build.ps1 -Configuration Release -Runtime win-x64
 ```
-Result: `installer/ComingUpNextTray-1.0.0.msi`
+Result: `installer/ComingUpNextTray-X.Y.Z.msi` where `X.Y.Z` is the version from the project file.
+
+To override the version just for a build (without editing the csproj), pass `-Version`:
+```powershell
+./build.ps1 -Configuration Release -Runtime win-x64 -Version 1.2.3
+```
+This stamps the EXE (assembly/file/product) and the MSI Package version consistently.
 
 Adjustments:
 - Update GUID placeholders in `installer/Product.wxs` (generate new GUIDs via `New-Guid`).

@@ -1,13 +1,22 @@
 param(
   [string]$Configuration = 'Release',
   [string]$Runtime = 'win-x64',
-  [string]$Version = '1.0.0'
+  [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
 
 $project = Join-Path $PSScriptRoot '..' 'src' 'ComingUpNextTray' 'ComingUpNextTray.csproj'
 if (!(Test-Path $project)) { Write-Error "Project file not found: $project"; exit 1 }
+
+# Determine version if not supplied
+if (-not $Version) {
+  Write-Host 'Reading version from csproj...'
+  [xml]$csprojXml = Get-Content $project
+  $Version = $csprojXml.Project.PropertyGroup.Version
+  if (-not $Version) { Write-Error 'Version not specified in csproj and not passed as parameter.'; exit 1 }
+  Write-Host "Detected version: $Version"
+}
 
 $publishDir = Join-Path $PSScriptRoot 'publish'
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
@@ -40,5 +49,5 @@ $harvestFragment = Join-Path $PSScriptRoot 'Harvest.wxs'
 "@ | Set-Content -Path $harvestFragment -Encoding UTF8
 
 Write-Host "Building MSI..."
-wix build "$PSScriptRoot\Product.wxs" "$harvestFragment" -o "$PSScriptRoot\ComingUpNextTray-$Version.msi"
+wix build -d Version=$Version "$PSScriptRoot\Product.wxs" "$harvestFragment" -o "$PSScriptRoot\ComingUpNextTray-$Version.msi"
 Write-Host "Done: $PSScriptRoot\ComingUpNextTray-$Version.msi"
