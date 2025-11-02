@@ -3,6 +3,9 @@ name: Release MSI
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: windows-latest
@@ -42,4 +45,3 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         tag: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
-        files: installer/publish/*.msi
