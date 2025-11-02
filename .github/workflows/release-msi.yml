@@ -1,0 +1,42 @@
+name: Release MSI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore NuGet packages
+      run: dotnet restore ComingUpNext.sln
+
+    - name: Build solution
+      run: dotnet build ComingUpNext.sln --configuration Release
+
+    - name: Build MSI
+      run: |
+        cd installer
+        .\build.ps1
+
+    - name: Publish MSI artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MSI
+        path: installer/publish/*.msi
+
+    - name: Create GitHub Release
+      uses: ncipollo/release-action@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        files: installer/publish/*.msi
