@@ -1,0 +1,40 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Restore NuGet packages
+      run: dotnet restore ComingUpNext.sln
+
+    - name: Build solution
+      run: dotnet build ComingUpNext.sln --configuration Release
+
+    - name: Run tests
+      run: dotnet test ComingUpNext.sln --configuration Release --no-build --verbosity normal
+
+    - name: Build MSI
+      run: |
+        cd installer
+        .\build.ps1
+
+    - name: Publish MSI artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: MSI
+        path: installer/publish/*.msi
