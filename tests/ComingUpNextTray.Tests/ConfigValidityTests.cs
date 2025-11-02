@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Xunit;
+using ComingUpNextTray;
 
 namespace ComingUpNextTray.Tests {
     public class ConfigValidityTests {
@@ -9,9 +10,9 @@ namespace ComingUpNextTray.Tests {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_empty_" + Guid.NewGuid() + ".json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using (Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication()) { }
+                using (TrayApplication app = new ComingUpNextTray.TrayApplication()) { }
                 File.WriteAllText(tempPath, string.Empty);
-                using (Program.TrayApplication app2 = new ComingUpNextTray.Program.TrayApplication()) { }
+                using (TrayApplication app2 = new ComingUpNextTray.TrayApplication()) { }
                 Assert.True(File.Exists(tempPath));
                 Assert.False(File.Exists(tempPath + ".invalid"));
             }
@@ -32,9 +33,9 @@ namespace ComingUpNextTray.Tests {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_emptyobj_" + Guid.NewGuid() + ".json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using (Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication()) { }
+                using (TrayApplication app = new ComingUpNextTray.TrayApplication()) { }
                 File.WriteAllText(tempPath, "{}");
-                using (Program.TrayApplication app2 = new ComingUpNextTray.Program.TrayApplication()) { }
+                using (TrayApplication app2 = new ComingUpNextTray.TrayApplication()) { }
                 Assert.True(File.Exists(tempPath));
                 Assert.False(File.Exists(tempPath + ".invalid"));
             }

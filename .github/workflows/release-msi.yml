@@ -22,6 +22,9 @@ jobs:
     - name: Build solution
       run: dotnet build ComingUpNext.sln --configuration Release
 
+    - name: Fail build on warnings
+      run: dotnet build ComingUpNext.sln --no-restore --warnaserror
+
     - name: Build MSI
       run: |
         cd installer

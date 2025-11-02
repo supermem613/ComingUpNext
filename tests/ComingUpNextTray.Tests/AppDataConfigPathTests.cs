@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using Xunit;
+using ComingUpNextTray;
+using ComingUpNextTray.Models;
 
 namespace ComingUpNextTray.Tests {
     public class AppDataConfigPathTests {
@@ -11,7 +13,7 @@ namespace ComingUpNextTray.Tests {
                 // If an override is set (other test leaked), clear and proceed
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
             }
-            using Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication();
+            using TrayApplication app = new TrayApplication();
             string path = app.GetConfigFilePathForTest();
             string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             Assert.StartsWith(roaming, Path.GetDirectoryName(path)!);
@@ -25,13 +27,19 @@ namespace ComingUpNextTray.Tests {
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
             }
 
-            using Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication();
+            using TrayApplication app = new TrayApplication();
             string path = app.GetConfigFilePathForTest();
             if (File.Exists(path)) {
                 File.Delete(path);
             }
 
-            app.SaveConfig();
+            // Create a ConfigModel instance
+            ConfigModel config = new ConfigModel {
+                CalendarUrl = "https://example.com/calendar.ics",
+                RefreshMinutes = 15
+            };
+
+            app.SaveConfig(config);
             Assert.True(File.Exists(path));
         }
     }

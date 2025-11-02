@@ -16,7 +16,8 @@ namespace ComingUpNextTray.Tests {
             Models.CalendarEntry evt = Assert.Single(result);
             Assert.Equal("Test Meeting", evt.Title);
             Assert.Equal(new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc).ToLocalTime().Hour, evt.StartTime.Hour);
-            Assert.Equal("https://example.com", evt.MeetingUrl);
+            // Uri normalization adds trailing slash to bare host; expect slash
+            Assert.Equal("https://example.com/", evt.MeetingUrl?.ToString());
         }
 
         [Fact]
@@ -33,7 +34,7 @@ namespace ComingUpNextTray.Tests {
             string ics = "BEGIN:VEVENT\nSUMMARY:Desc Link\nDTSTART:20250101T090000Z\nDESCRIPTION: Join at https://example.com/meet \nEND:VEVENT";
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
             Models.CalendarEntry evt = Assert.Single(result);
-            Assert.Equal("https://example.com/meet", evt.MeetingUrl);
+            Assert.Equal("https://example.com/meet", evt.MeetingUrl?.ToString());
         }
 
         [Fact]
@@ -43,7 +44,7 @@ namespace ComingUpNextTray.Tests {
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
             Models.CalendarEntry evt = Assert.Single(result);
             Assert.Equal("Folded Meeting", evt.Title);
-            Assert.Equal("https://example.com/folded", evt.MeetingUrl);
+            Assert.Equal("https://example.com/folded", evt.MeetingUrl?.ToString());
         }
 
         [Fact]

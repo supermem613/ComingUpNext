@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Xunit;
+using ComingUpNextTray;
 
 namespace ComingUpNextTray.Tests {
     public class MalformedConfigTests {
@@ -11,7 +12,7 @@ namespace ComingUpNextTray.Tests {
             File.WriteAllText(tempPath, "{ invalid json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using (Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication()) {
+                using (TrayApplication app = new TrayApplication()) {
                     Assert.True(app.WasConfigErrorDetectedForTest()); // detection flagged
                 }
                 Assert.True(File.Exists(tempPath + ".invalid"));

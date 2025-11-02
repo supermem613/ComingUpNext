@@ -1,6 +1,6 @@
 ﻿namespace ComingUpNextTray;
 
-partial class Form1
+partial class SettingsForm
 {
     /// <summary>
     ///  Required designer variable.
@@ -31,7 +31,7 @@ partial class Form1
         this.components = new System.ComponentModel.Container();
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         this.ClientSize = new System.Drawing.Size(800, 450);
-        this.Text = "Form1";
+    this.Text = "Settings";
     }
 
     #endregion

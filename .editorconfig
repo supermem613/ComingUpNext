@@ -14,6 +14,9 @@ trim_trailing_whitespace = true
 # Use latest C#
 dotnet_language_version = latest
 
+# Enforce strict code style and quality rules
+dotnet_diagnostic.CA0000.severity = error
+
 ############## Naming ##############
 # Local variables camelCase, parameters camelCase, private fields _camelCase
 dotnet_naming_rule.private_fields_should_be__camel_case.severity = suggestion
@@ -58,10 +61,10 @@ dotnet_style_collection_initializer = true:suggestion
 csharp_style_conditional_delegate_call = true:suggestion
 
 ############## Qualification ##############
-dotnet_style_qualification_for_field = false:suggestion
-dotnet_style_qualification_for_property = false:suggestion
-dotnet_style_qualification_for_method = false:suggestion
-dotnet_style_qualification_for_event = false:suggestion
+dotnet_style_qualification_for_field = true:error
+dotnet_style_qualification_for_property = true:error
+dotnet_style_qualification_for_method = true:error
+dotnet_style_qualification_for_event = true:error
 
 ############## Using directives ##############
 csharp_style_prefer_top_level_using_directive = true:suggestion
@@ -72,11 +75,11 @@ dotnet_style_parentheses_in_other_binary_operators = always_for_clarity:silent
 dotnet_style_parentheses_in_relational_binary_operators = always_for_clarity:silent
 
 ############## Accessibility modifiers ##############
-dotnet_style_require_accessibility_modifiers = always:warning
+dotnet_style_require_accessibility_modifiers = always:error
 
 ############## Formatting ##############
 csharp_indent_switch_labels = true
-csharp_new_line_before_open_brace = all:warning
+csharp_new_line_before_open_brace = all:error
 csharp_new_line_before_else = true
 csharp_new_line_before_catch = true
 csharp_new_line_before_finally = true
@@ -94,4 +97,10 @@ csharp_style_prefer_local_over_anonymous_function = true:suggestion
 ############## Analyzer severity overrides ##############
 # Example: treat CA1822 (Mark members as static) as suggestion
 dotnet_analyzer_diagnostic.category-Performance.severity = suggestion
+
+# Set the severity of specific rules
+dotnet_diagnostic.CA1000.severity = error
+dotnet_diagnostic.CA2000.severity = error
+dotnet_diagnostic.SA1633.severity = none
+dotnet_diagnostic.SA1636.severity = none
 

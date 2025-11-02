@@ -27,3 +27,6 @@ jobs:
 
     - name: Run tests
       run: dotnet test ComingUpNext.sln --configuration Release --no-build --verbosity normal
+
+    - name: Run static analysis
+      run: dotnet build ComingUpNext.sln --no-restore --warnaserror

@@ -1,5 +1,6 @@
 using System;
 using Xunit;
+using ComingUpNextTray;
 
 namespace ComingUpNextTray.Tests {
     public class IconStateTests {
@@ -8,9 +9,9 @@ namespace ComingUpNextTray.Tests {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_icon_" + Guid.NewGuid() + ".json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication();
-                Program.TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
-                Assert.Equal(ComingUpNextTray.Program.TrayApplication.IconState.NoCalendar, state);
+                using TrayApplication app = new TrayApplication();
+                TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
+                Assert.Equal(TrayApplication.IconState.NoCalendar, state);
             }
             finally {
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
@@ -29,12 +30,12 @@ namespace ComingUpNextTray.Tests {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_icon_" + Guid.NewGuid() + ".json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication();
+                using TrayApplication app = new TrayApplication();
                 // Set a calendar URL but no meetings fetched
-                System.Reflection.FieldInfo urlField = typeof(ComingUpNextTray.Program.TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                System.Reflection.FieldInfo urlField = typeof(TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
                 urlField.SetValue(app, "https://example.com/calendar.ics");
-                Program.TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
-                Assert.Equal(ComingUpNextTray.Program.TrayApplication.IconState.NoMeeting, state);
+                TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
+                Assert.Equal(TrayApplication.IconState.NoMeeting, state);
             }
             finally {
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
@@ -53,13 +54,13 @@ namespace ComingUpNextTray.Tests {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_icon_" + Guid.NewGuid() + ".json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication();
-                System.Reflection.FieldInfo urlField = typeof(ComingUpNextTray.Program.TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                using TrayApplication app = new TrayApplication();
+                System.Reflection.FieldInfo urlField = typeof(TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
                 urlField.SetValue(app, "https://example.com/calendar.ics");
-                System.Reflection.FieldInfo nextField = typeof(ComingUpNextTray.Program.TrayApplication).GetField("_nextMeeting", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                System.Reflection.FieldInfo nextField = typeof(TrayApplication).GetField("_nextMeeting", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
                 nextField.SetValue(app, new ComingUpNextTray.Models.CalendarEntry { Title = "Far", StartTime = DateTime.Now.AddDays(2), EndTime = DateTime.Now.AddDays(2).AddHours(1) });
-                Program.TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
-                Assert.Equal(ComingUpNextTray.Program.TrayApplication.IconState.DistantFuture, state);
+                TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
+                Assert.Equal(TrayApplication.IconState.DistantFuture, state);
             }
             finally {
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
@@ -78,13 +79,13 @@ namespace ComingUpNextTray.Tests {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_icon_" + Guid.NewGuid() + ".json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication();
-                System.Reflection.FieldInfo urlField = typeof(ComingUpNextTray.Program.TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                using TrayApplication app = new TrayApplication();
+                System.Reflection.FieldInfo urlField = typeof(TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
                 urlField.SetValue(app, "https://example.com/calendar.ics");
-                System.Reflection.FieldInfo nextField = typeof(ComingUpNextTray.Program.TrayApplication).GetField("_nextMeeting", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                System.Reflection.FieldInfo nextField = typeof(TrayApplication).GetField("_nextMeeting", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
                 nextField.SetValue(app, new ComingUpNextTray.Models.CalendarEntry { Title = "Soon", StartTime = DateTime.Now.AddMinutes(30), EndTime = DateTime.Now.AddMinutes(60) });
-                Program.TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
-                Assert.Equal(ComingUpNextTray.Program.TrayApplication.IconState.MinutesRemaining, state);
+                TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
+                Assert.Equal(TrayApplication.IconState.MinutesRemaining, state);
             }
             finally {
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
@@ -103,13 +104,13 @@ namespace ComingUpNextTray.Tests {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_icon_" + Guid.NewGuid() + ".json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication();
-                System.Reflection.FieldInfo urlField = typeof(ComingUpNextTray.Program.TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                using TrayApplication app = new TrayApplication();
+                System.Reflection.FieldInfo urlField = typeof(TrayApplication).GetField("_calendarUrl", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
                 urlField.SetValue(app, "https://example.com/calendar.ics");
-                System.Reflection.FieldInfo nextField = typeof(ComingUpNextTray.Program.TrayApplication).GetField("_nextMeeting", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+                System.Reflection.FieldInfo nextField = typeof(TrayApplication).GetField("_nextMeeting", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
                 nextField.SetValue(app, new ComingUpNextTray.Models.CalendarEntry { Title = "Now", StartTime = DateTime.Now.AddMinutes(-1), EndTime = DateTime.Now.AddMinutes(30) });
-                Program.TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
-                Assert.Equal(ComingUpNextTray.Program.TrayApplication.IconState.Started, state);
+                TrayApplication.IconState state = app.ComputeIconState(DateTime.Now);
+                Assert.Equal(TrayApplication.IconState.Started, state);
             }
             finally {
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
