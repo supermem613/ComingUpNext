@@ -18,8 +18,14 @@ if (-not $Version) {
   Write-Host "Detected version: $Version"
 }
 
+# Trim the version string to remove any trailing spaces
+$Version = $Version.Trim()
+
 $publishDir = Join-Path $PSScriptRoot 'publish'
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+
+# Log the publish directory for debugging
+Write-Host "Publish directory: $publishDir"
 
 Write-Host "Publishing .NET app..."
 dotnet publish $project -c $Configuration -r $Runtime --self-contained true /p:PublishSingleFile=true /p:IncludeAllContentForSelfExtract=true /p:AssemblyVersion=$Version /p:FileVersion=$Version /p:Version=$Version -o $publishDir
