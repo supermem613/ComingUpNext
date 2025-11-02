@@ -101,9 +101,6 @@ Create a shortcut to the published EXE in:
 ## Future Improvements
  - Add Windows Toast notifications using Windows App SDK for richer UX
  - Optional filtering (e.g. ignore all-day events or past events spanning multiple days)
- - Unit tests project (ICS parsing, time formatting)
- - Auto-update mechanism
- - Persist additional UI preferences (e.g., balloon notifications toggle)
 
 ## License
 See `LICENSE`.
