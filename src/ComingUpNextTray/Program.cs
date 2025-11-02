@@ -31,6 +31,8 @@ namespace ComingUpNextTray {
             private bool _disposed;
             private bool _isManualRefreshing;
             private readonly SemaphoreSlim _refreshGate = new(1, 1); // prevent overlapping refresh calls
+            private readonly bool _isTestMode;
+            private bool _configErrorDetected;
 
             // Icon cache: key is tuple (background.ToArgb(), foreground.ToArgb(), text)
             private readonly Dictionary<(int bg, int fg, string text), Icon> _iconCache = new();
@@ -40,9 +42,11 @@ namespace ComingUpNextTray {
                 string? overridePath = Environment.GetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH");
                 if (!string.IsNullOrWhiteSpace(overridePath)) {
                     _configPath = overridePath!;
+                    _isTestMode = true;
                 }
                 else {
                     _configPath = GetAppDataConfigPath();
+                    _isTestMode = false;
                 }
                 _notifyIcon = new NotifyIcon {
                     Icon = SystemIcons.Application,
@@ -389,7 +393,10 @@ namespace ComingUpNextTray {
                             }
                         }
                         catch { }
-                        ShowBalloon("Config Error", "Config file malformed. Renamed to config.json.invalid.");
+                        _configErrorDetected = true;
+                        if (!_isTestMode) {
+                            ShowBalloon("Config Error", "Config file malformed. Renamed to config.json.invalid.");
+                        }
                         return;
                     }
 
@@ -465,6 +472,9 @@ namespace ComingUpNextTray {
                 }
                 catch { }
             }
+
+            // Test helper to verify detection without displaying balloon
+            internal bool WasConfigErrorDetectedForTest() => _configErrorDetected;
         }
 
         // Public test helper wrappers (avoid fragile reflection in tests)

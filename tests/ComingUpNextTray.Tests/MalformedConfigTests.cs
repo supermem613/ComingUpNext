@@ -11,7 +11,9 @@ namespace ComingUpNextTray.Tests {
             File.WriteAllText(tempPath, "{ invalid json");
             Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
             try {
-                using (Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication()) { }
+                using (Program.TrayApplication app = new ComingUpNextTray.Program.TrayApplication()) {
+                    Assert.True(app.WasConfigErrorDetectedForTest()); // detection flagged
+                }
                 Assert.True(File.Exists(tempPath + ".invalid"));
             }
             finally {
