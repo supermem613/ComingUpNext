@@ -1,0 +1,97 @@
+# Root EditorConfig for ComingUpNext
+root = true
+
+# Top-level settings
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.cs]
+# Use latest C#
+dotnet_language_version = latest
+
+############## Naming ##############
+# Local variables camelCase, parameters camelCase, private fields _camelCase
+dotnet_naming_rule.private_fields_should_be__camel_case.severity = suggestion
+dotnet_naming_rule.private_fields_should_be__camel_case.symbols = private_fields
+dotnet_naming_rule.private_fields_should_be__camel_case.style = prefix_camel_case
+
+# Symbol group
+Dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+Dotnet_naming_symbols.private_fields.applicable_kinds = field
+Dotnet_naming_symbols.private_fields.required_modifiers = 
+
+# Style
+Dotnet_naming_style.prefix_camel_case.required_prefix = _
+Dotnet_naming_style.prefix_camel_case.capitalization = camel_case
+
+############## Braces & Blocks ##############
+# Require braces for all control statements
+dotnet_style_require_accessibility_modifiers = always:suggestion
+csharp_prefer_braces = true:warning
+csharp_style_namespace_declarations = block_scoped:warning
+csharp_prefer_simple_using_statement = false:suggestion
+
+# Force braces in conditional, loop, and other statements
+csharp_prefer_braces = true:warning
+
+############## Var usage ##############
+# Prefer explicit types except where type is obvious from new expression
+csharp_style_var_for_built_in_types = false:warning
+csharp_style_var_when_type_is_apparent = false:warning
+csharp_style_var_elsewhere = false:warning
+
+############## Expression styles ##############
+# Prefer pattern matching where appropriate
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+
+# Prefer object/collection initializers
+dotnet_style_object_initializer = true:suggestion
+dotnet_style_collection_initializer = true:suggestion
+
+# Null checking
+csharp_style_conditional_delegate_call = true:suggestion
+
+############## Qualification ##############
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+dotnet_style_qualification_for_method = false:suggestion
+dotnet_style_qualification_for_event = false:suggestion
+
+############## Using directives ##############
+csharp_style_prefer_top_level_using_directive = true:suggestion
+
+############## Parentheses ##############
+dotnet_style_parentheses_in_arithmetic_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_other_binary_operators = always_for_clarity:silent
+dotnet_style_parentheses_in_relational_binary_operators = always_for_clarity:silent
+
+############## Accessibility modifiers ##############
+dotnet_style_require_accessibility_modifiers = always:warning
+
+############## Formatting ##############
+csharp_indent_switch_labels = true
+csharp_new_line_before_open_brace = all:warning
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_new_line_before_members_in_object_initializers = true
+csharp_new_line_between_query_expression_clauses = true
+
+############## Misc preferences ##############
+dotnet_style_readonly_field = true:suggestion
+csharp_style_unused_value_expression_statement_preference = discard_variable:suggestion
+csharp_style_prefer_local_over_anonymous_function = true:suggestion
+
+############## File scoped namespace enforcement ##############
+# We prefer block-scoped namespaces as per earlier rule; keep consistent.
+
+############## Analyzer severity overrides ##############
+# Example: treat CA1822 (Mark members as static) as suggestion
+dotnet_analyzer_diagnostic.category-Performance.severity = suggestion
+
