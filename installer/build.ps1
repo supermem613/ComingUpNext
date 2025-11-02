@@ -40,7 +40,7 @@ $harvestFragment = Join-Path $PSScriptRoot 'Harvest.wxs'
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="MainComponents">
-      <Component Id="Cmp_Exe" Guid="*">
+      <Component Id="Cmp_Exe" Guid="*" Directory="INSTALLFOLDER">
         <File Id="ComingUpNextExe" Source="$exePath" KeyPath="yes" />
       </Component>
     </ComponentGroup>
