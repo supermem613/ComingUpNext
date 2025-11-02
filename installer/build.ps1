@@ -60,6 +60,6 @@ $harvestFragment = Join-Path $PSScriptRoot 'Harvest.wxs'
 Write-Host "Building MSI..."
 # Log the output of wix build
 Write-Host "Running wix build..."
-$wixOutput = wix build -d Version=$Version "$PSScriptRoot\Product.wxs" "$harvestFragment" -o "$PSScriptRoot\ComingUpNextTray-$Version.msi" 2>&1
+$wixOutput = wix build -d Version=$Version "$PSScriptRoot\Product.wxs" "$harvestFragment" -o "$publishDir\ComingUpNextTray-$Version.msi" 2>&1
 Write-Host "wix build output: $wixOutput"
-Write-Host "Done: $PSScriptRoot\ComingUpNextTray-$Version.msi"
+Write-Host "Done: $publishDir\ComingUpNextTray-$Version.msi"
