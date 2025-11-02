@@ -9,12 +9,14 @@
     <EnableUnsafeBlocks>false</EnableUnsafeBlocks>
     <!-- Single source of truth for version used by publish and MSI -->
     <Version>0.1.0</Version>
+    <ApplicationIcon>Resources\ComingUpNext.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Content Include="config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Resources\ComingUpNext.ico" />
   </ItemGroup>
 
 </Project>
