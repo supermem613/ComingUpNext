@@ -28,7 +28,10 @@ if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 Write-Host "Publish directory: $publishDir"
 
 Write-Host "Publishing .NET app..."
-dotnet publish $project -c $Configuration -r $Runtime --self-contained true /p:PublishSingleFile=true /p:IncludeAllContentForSelfExtract=true /p:AssemblyVersion=$Version /p:FileVersion=$Version /p:Version=$Version -o $publishDir
+# Log the output of dotnet publish
+Write-Host "Running dotnet publish..."
+$publishOutput = dotnet publish $project -c $Configuration -r $Runtime --self-contained true /p:PublishSingleFile=true /p:IncludeAllContentForSelfExtract=true /p:AssemblyVersion=$Version /p:FileVersion=$Version /p:Version=$Version -o $publishDir 2>&1
+Write-Host "dotnet publish output: $publishOutput"
 
 if (-not (Get-Command wix -ErrorAction SilentlyContinue)) {
   Write-Host 'Installing WiX toolset (v5)...'
@@ -55,5 +58,8 @@ $harvestFragment = Join-Path $PSScriptRoot 'Harvest.wxs'
 "@ | Set-Content -Path $harvestFragment -Encoding UTF8
 
 Write-Host "Building MSI..."
-wix build -d Version=$Version "$PSScriptRoot\Product.wxs" "$harvestFragment" -o "$PSScriptRoot\ComingUpNextTray-$Version.msi"
+# Log the output of wix build
+Write-Host "Running wix build..."
+$wixOutput = wix build -d Version=$Version "$PSScriptRoot\Product.wxs" "$harvestFragment" -o "$PSScriptRoot\ComingUpNextTray-$Version.msi" 2>&1
+Write-Host "wix build output: $wixOutput"
 Write-Host "Done: $PSScriptRoot\ComingUpNextTray-$Version.msi"
