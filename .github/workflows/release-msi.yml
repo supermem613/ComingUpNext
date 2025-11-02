@@ -26,15 +26,33 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Extract version from csproj
-        id: version
-        shell: pwsh
-        run: |
-          [xml]$xml = Get-Content $env:PROJECT_CSProj
-          $v = $xml.Project.PropertyGroup.Version
-          if (-not $v) { Write-Error 'Version element not found in csproj.' }
-          $v = $v.Trim()
-          Write-Host "Version: $v"
-          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          id: version
+          shell: pwsh
+          run: |
+            Write-Host "Reading version from $env:PROJECT_CSProj"
+            $content = Get-Content $env:PROJECT_CSProj -Raw
+            if (-not $content) { Write-Error 'Could not read csproj content.' }
+            try {
+              [xml]$xml = $content
+            } catch {
+              Write-Warning 'XML parse failed, will try regex.'
+            }
+            $v = $null
+            if ($xml) {
+              # Handle multiple PropertyGroup elements
+              $v = ($xml.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1)
+            }
+            if (-not $v) {
+              if ($content -match '<Version>(?<ver>[^<]+)</Version>') {
+                $v = $Matches.ver
+                Write-Host 'Version found via regex fallback.'
+              }
+            }
+            if (-not $v) { Write-Error 'Version element not found in csproj.' }
+            $v = $v.Trim()
+            if (-not $v) { Write-Error 'Version value is empty after trim.' }
+            Write-Host "Version: $v"
+            "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Restore NuGet packages
         run: dotnet restore ComingUpNext.sln
