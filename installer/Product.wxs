@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <!-- App icon for Programs and Features (ARP).
+         Use the published EXE as the source so the EXE's embedded icon is captured
+         into the MSI Binary table (avoids some ICO format issues). The publish
+         output is created before WiX is invoked by the build script, so this
+         relative path is available at build time. -->
+    <Icon Id="AppIcon" SourceFile="publish\ComingUpNextTray.exe" />
+  </Fragment>
   <Package Name="ComingUpNext Tray" Manufacturer="https://github.com/supermem613/ComingUpNext" Version="$(var.Version)" UpgradeCode="498c67de-c24e-4712-814b-b6e0e03d89cb" Language="1033" Scope="perUser" InstallerVersion="500">
-  <!-- Scope=perUser already enforces per-user install; ALLUSERS property removed to avoid WIX0006. -->
-  <!-- Optional explicit InstallFolder property (not strictly required) -->
+    <!-- Tell ARP which icon to use (matches Icon Id above) -->
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <!-- Scope=perUser already enforces per-user install; ALLUSERS property removed to avoid WIX0006. -->
+    <!-- Optional explicit InstallFolder property (not strictly required) -->
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     <!-- Directory tree: install into user's LocalAppData to avoid elevation -->
     <StandardDirectory Id="LocalAppDataFolder">
@@ -22,10 +32,17 @@
       <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run" Name="ComingUpNextTray" Value="[INSTALLFOLDER]ComingUpNextTray.exe" Type="string" KeyPath="yes" />
     </Component>
 
+    <!-- Ensure Programs and Features (ARP) uses the EXE icon by writing DisplayIcon into the Uninstall key. -->
+    <Component Id="ArpDisplayIcon" Guid="F3C2B8B4-6E5A-4A9A-9C3D-1B2A7E4C9D11" Directory="INSTALLFOLDER">
+      <!-- Write the DisplayIcon value to the per-user Uninstall key for this ProductCode -->
+      <RegistryValue Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Uninstall\[ProductCode]" Name="DisplayIcon" Value="[INSTALLFOLDER]ComingUpNextTray.exe,0" Type="string" KeyPath="yes" />
+    </Component>
+
     <Feature Id="MainFeature" Title="ComingUpNext Tray" Level="1">
       <ComponentGroupRef Id="MainComponents" />
       <ComponentRef Id="StartMenuShortcut" />
       <ComponentRef Id="AutoStartRunKey" />
+      <ComponentRef Id="ArpDisplayIcon" />
     </Feature>
   </Package>
 </Wix>
