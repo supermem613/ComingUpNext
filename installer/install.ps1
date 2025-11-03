@@ -1,5 +1,7 @@
 param(
-  [Parameter(Mandatory=$true)][string]$MsiPath
+  [Parameter(Mandatory=$true)][string]$MsiPath,
+  [switch]$VerboseUninstall,
+  [switch]$SkipProcessKill
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,11 +23,45 @@ foreach ($root in $uninstallRoots) {
 }
 
 if ($productCode) {
-  Write-Host "Found existing product code: $productCode. Uninstalling..."
-  $uninstallParams = @('/x', $productCode, '/qn')
+  Write-Host "Found existing product code: $productCode. Preparing uninstall..."
+  if (-not $SkipProcessKill) {
+    Write-Host 'Attempting to terminate running ComingUpNextTray processes...'
+    Get-Process -Name 'ComingUpNextTray' -ErrorAction SilentlyContinue | ForEach-Object {
+      try {
+        $_.CloseMainWindow() | Out-Null
+        Start-Sleep -Milliseconds 400
+        if (-not $_.HasExited) { $_.Kill() }
+        Write-Host "Stopped process Id=$($_.Id)"
+      } catch {
+        Write-Warning "Could not stop process Id=$($_.Id): $($_.Exception.Message)"
+      }
+    }
+  } else {
+    Write-Host 'SkipProcessKill set: not terminating existing processes.'
+  }
+
+  $uninstallLog = Join-Path ([IO.Path]::GetDirectoryName($MsiPath)) ('uninstall-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
+  $uninstallParams = @('/x', $productCode, '/qn', '/l*v', $uninstallLog)
   Write-Host "Using product code for uninstall: $productCode"
+  Write-Host "Running: msiexec.exe $($uninstallParams -join ' ')"
   $proc = Start-Process msiexec.exe -Wait -PassThru -ArgumentList $uninstallParams
-  if ($proc.ExitCode -ne 0) { Write-Error "Uninstall failed with exit code $($proc.ExitCode)"; exit $proc.ExitCode }
+  if ($proc.ExitCode -ne 0) {
+    Write-Error "Uninstall failed with exit code $($proc.ExitCode)"
+    if (Test-Path $uninstallLog) {
+      Write-Host "Uninstall log saved: $uninstallLog"
+      try {
+        $errorLines = Get-Content -Path $uninstallLog -ErrorAction SilentlyContinue | Select-String -Pattern 'Error ' -First 5
+        if ($errorLines) {
+          Write-Host 'First error lines:'
+          $errorLines | ForEach-Object { Write-Host $_.ToString() }
+        }
+      } catch { Write-Warning "Failed to parse uninstall log: $($_.Exception.Message)" }
+    }
+    if ($proc.ExitCode -eq 1603) {
+      Write-Warning 'MSI error 1603: locked files, insufficient privileges, pending reboot, or custom action failure likely.'
+    }
+    exit $proc.ExitCode
+  }
   Write-Host 'Previous version uninstalled.'
 } else {
   Write-Host 'No previous installation found.'
@@ -35,7 +71,14 @@ Write-Host "Installing new MSI: $MsiPath (verbose log enabled)"
 $msiLog = Join-Path ([IO.Path]::GetDirectoryName($MsiPath)) 'install.log'
 $installArgs = @('/i', $MsiPath, '/qn', '/l*v', $msiLog)
 $proc2 = Start-Process msiexec.exe -Wait -PassThru -ArgumentList $installArgs
-if ($proc2.ExitCode -ne 0) { Write-Error "Install failed with exit code $($proc2.ExitCode)"; exit $proc2.ExitCode }
+if ($proc2.ExitCode -ne 0) {
+  Write-Error "Install failed with exit code $($proc2.ExitCode)"
+  if ($proc2.ExitCode -eq 1603) {
+    Write-Warning 'MSI install error 1603: verify no running instances, adequate permissions, and check the log for detailed failure.'
+    Write-Host "Install log: $msiLog"
+  }
+  exit $proc2.ExitCode
+}
 
 Write-Host 'MSI installed successfully.'
 
