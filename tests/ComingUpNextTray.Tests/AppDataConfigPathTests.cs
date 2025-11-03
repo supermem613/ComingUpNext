@@ -7,17 +7,35 @@ using ComingUpNextTray.Models;
 namespace ComingUpNextTray.Tests {
     public class AppDataConfigPathTests {
         [Fact]
-        public void Config_Path_Is_In_AppData_Roaming() {
-            string? overridePath = Environment.GetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH");
-            if (!string.IsNullOrWhiteSpace(overridePath)) {
-                // If an override is set (other test leaked), clear and proceed
-                Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
-            }
+        public void Config_Path_Is_In_Install_Directory() {
+            Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
             using TrayApplication app = new TrayApplication();
             string path = app.GetConfigFilePathForTest();
-            string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            Assert.StartsWith(roaming, Path.GetDirectoryName(path)!);
-            Assert.EndsWith(Path.Combine("ComingUpNext", "config.json"), path.Replace(roaming + Path.DirectorySeparatorChar, string.Empty));
+            Assert.StartsWith(AppContext.BaseDirectory, Path.GetDirectoryName(path)!);
+            Assert.EndsWith("config.json", Path.GetFileName(path));
+        }
+
+        [Fact]
+        public void Legacy_AppData_Config_Is_Migrated() {
+            // Arrange: create a legacy AppData config if not present.
+            string legacyDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Program.AppFolderName);
+            Directory.CreateDirectory(legacyDir);
+            string legacyFile = Path.Combine(legacyDir, Program.ConfigFileName);
+            File.WriteAllText(legacyFile, "{\"CalendarUrl\":\"https://legacy.example/ics\",\"RefreshMinutes\":10}");
+
+            // Ensure destination does not exist.
+            string installFile = Path.Combine(AppContext.BaseDirectory, Program.ConfigFileName);
+            if (File.Exists(installFile))
+            {
+                File.Delete(installFile);
+            }
+
+            using TrayApplication app = new TrayApplication();
+            string path = app.GetConfigFilePathForTest();
+            Assert.Equal(installFile, path);
+            Assert.True(File.Exists(path)); // migrated
+            string json = File.ReadAllText(path);
+            Assert.Contains("legacy.example", json);
         }
 
         [Fact]

@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="ComingUpNext Tray" Manufacturer="https://github.com/supermem613/ComingUpNext" Version="$(var.Version)" UpgradeCode="498c67de-c24e-4712-814b-b6e0e03d89cb" Language="1033" Scope="perMachine" InstallerVersion="500">
-    <!-- Directory tree -->
-    <StandardDirectory Id="ProgramFiles64Folder">
+  <Package Name="ComingUpNext Tray" Manufacturer="https://github.com/supermem613/ComingUpNext" Version="$(var.Version)" UpgradeCode="498c67de-c24e-4712-814b-b6e0e03d89cb" Language="1033" Scope="perUser" InstallerVersion="500">
+  <!-- Scope=perUser already enforces per-user install; ALLUSERS property removed to avoid WIX0006. -->
+  <!-- Optional explicit InstallFolder property (not strictly required) -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <!-- Directory tree: install into user's LocalAppData to avoid elevation -->
+    <StandardDirectory Id="LocalAppDataFolder">
       <Directory Id="INSTALLFOLDER" Name="ComingUpNext" />
     </StandardDirectory>
     <StandardDirectory Id="ProgramMenuFolder">

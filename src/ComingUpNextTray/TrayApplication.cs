@@ -39,15 +39,34 @@ namespace ComingUpNextTray
             }
             else
             {
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                this._configPath = Path.Combine(appData, Program.AppFolderName, Program.ConfigFileName);
+                // New per-user install model: config lives beside executable in install folder (LocalAppData\ComingUpNext).
+                string installDir = AppContext.BaseDirectory;
+                string newPath = Path.Combine(installDir, Program.ConfigFileName);
+
+                // Migration: if legacy AppData config exists and new file absent, move it.
+                try
+                {
+                    string legacyAppData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Program.AppFolderName, Program.ConfigFileName);
+                    if (!File.Exists(newPath) && File.Exists(legacyAppData))
+                    {
+                        File.Copy(legacyAppData, newPath, overwrite: false);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+
+                this._configPath = newPath;
                 this._isTestMode = false;
             }
 
             this.LoadConfig();
         }
 
-    /// <summary>
+        /// <summary>
         /// Enumeration of icon display states for the tray overlay and tooltip.
         /// </summary>
         internal enum IconState
@@ -80,7 +99,7 @@ namespace ComingUpNextTray
             this._calendarService.Dispose();
         }
 
-    /// <summary>
+        /// <summary>
         /// Formats a number of minutes until the next meeting into compact overlay text.
         /// For 1-59 minutes returns the minute value; for 60+ rounds to hours and appends an hour suffix.
         /// </summary>
@@ -103,7 +122,7 @@ namespace ComingUpNextTray
             return hours.ToString(CultureInfo.InvariantCulture) + UiText.HourSuffix;
         }
 
-    /// <summary>
+        /// <summary>
         /// Fetches the calendar data (if a URL is configured) and computes the next meeting.
         /// </summary>
         /// <param name="ct">Cancellation token for aborting network I/O.</param>
@@ -267,7 +286,7 @@ namespace ComingUpNextTray
         /// <returns>Minutes.</returns>
         internal int GetRefreshMinutesForUi() => this._refreshMinutes;
 
-    /// <summary>Updates the calendar URL and saves config.</summary>
+        /// <summary>Updates the calendar URL and saves config.</summary>
         /// <param name="url">New calendar URL (absolute) or empty to clear.</param>
         internal void SetCalendarUrl(string? url)
         {
@@ -288,10 +307,10 @@ namespace ComingUpNextTray
             this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes });
         }
 
-    /// <summary>
-    /// Persists configuration to disk, updating the active calendar URL and refresh interval.
-    /// </summary>
-    /// <param name="config">Configuration model to save.</param>
+        /// <summary>
+        /// Persists configuration to disk, updating the active calendar URL and refresh interval.
+        /// </summary>
+        /// <param name="config">Configuration model to save.</param>
         internal void SaveConfig(ConfigModel config)
         {
             ObjectDisposedException.ThrowIf(this._disposed, nameof(TrayApplication));

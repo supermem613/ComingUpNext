@@ -44,6 +44,8 @@ if (!(Test-Path $exePath)) { Write-Error "Executable not found: $exePath"; exit 
 
 Write-Host "Writing Harvest.wxs..."
 $harvestFragment = Join-Path $PSScriptRoot 'Harvest.wxs'
+ $iconPath = Join-Path (Join-Path $PSScriptRoot '..' 'src' 'ComingUpNextTray' 'Resources') 'ComingUpNext.ico'
+ $configPath = Join-Path (Join-Path $PSScriptRoot '..' 'src' 'ComingUpNextTray') 'config.json'
 @"
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -51,6 +53,13 @@ $harvestFragment = Join-Path $PSScriptRoot 'Harvest.wxs'
     <ComponentGroup Id="MainComponents">
       <Component Id="Cmp_Exe" Guid="*" Directory="INSTALLFOLDER">
         <File Id="ComingUpNextExe" Source="$exePath" KeyPath="yes" />
+      </Component>
+      <!-- Include icon and default config as content so runtime file loads succeed even in single-file publish extraction scenarios -->
+      <Component Id="Cmp_Icon" Guid="*" Directory="INSTALLFOLDER">
+        <File Id="ComingUpNextIco" Source="$iconPath" />
+      </Component>
+      <Component Id="Cmp_Config" Guid="*" Directory="INSTALLFOLDER">
+        <File Id="ComingUpNextConfig" Source="$configPath" />
       </Component>
     </ComponentGroup>
   </Fragment>
@@ -60,6 +69,7 @@ $harvestFragment = Join-Path $PSScriptRoot 'Harvest.wxs'
 Write-Host "Building MSI..."
 # Log the output of wix build
 Write-Host "Running wix build..."
-$wixOutput = wix build -d Version=$Version "$PSScriptRoot\Product.wxs" "$harvestFragment" -o "$publishDir\ComingUpNextTray-$Version.msi" 2>&1
+$finalMsi = Join-Path $PSScriptRoot "ComingUpNextTray-$Version.msi"
+$wixOutput = wix build -d Version=$Version "$PSScriptRoot\Product.wxs" "$harvestFragment" -o $finalMsi 2>&1
 Write-Host "wix build output: $wixOutput"
-Write-Host "Done: $publishDir\ComingUpNextTray-$Version.msi"
+Write-Host "Done: $finalMsi"

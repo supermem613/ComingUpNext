@@ -27,13 +27,13 @@ namespace ComingUpNextTray
         public static string FormatMinutesForIconForTest(int minutes) => TrayApplication.FormatMinutesForIcon(minutes);
 
         /// <summary>
-        /// Test helper wrapper to compute default AppData config path without constructing application.
+        /// Test helper wrapper to compute default install directory config path.
         /// </summary>
-        /// <returns>Full expected config file path.</returns>
+        /// <returns>Full expected install config file path.</returns>
         public static string GetConfigFilePathForTest()
         {
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return Path.Combine(appData, AppFolderName, ConfigFileName);
+            string baseDir = AppContext.BaseDirectory;
+            return Path.Combine(baseDir, ConfigFileName);
         }
 
         /// <summary>

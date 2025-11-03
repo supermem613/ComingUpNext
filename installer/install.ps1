@@ -11,7 +11,11 @@ if (-not (Test-Path $MsiPath)) { Write-Error "MSI path not found: $MsiPath"; exi
 $displayName = 'ComingUpNext Tray'
 Write-Host "Looking for existing installation of '$displayName'..."
 $productCode = $null
-$uninstallRoots = @('HKLM:SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')
+$uninstallRoots = @(
+  'HKCU:SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+  'HKLM:SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall',
+  'HKLM:SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
+)
 foreach ($root in $uninstallRoots) {
   Get-ChildItem $root -ErrorAction SilentlyContinue | ForEach-Object {
     try { $p = Get-ItemProperty $_.PsPath } catch { $p = $null }
@@ -46,21 +50,24 @@ if ($productCode) {
   Write-Host "Running: msiexec.exe $($uninstallParams -join ' ')"
   $proc = Start-Process msiexec.exe -Wait -PassThru -ArgumentList $uninstallParams
   if ($proc.ExitCode -ne 0) {
-    Write-Error "Uninstall failed with exit code $($proc.ExitCode)"
-    if (Test-Path $uninstallLog) {
-      Write-Host "Uninstall log saved: $uninstallLog"
-      try {
-        $errorLines = Get-Content -Path $uninstallLog -ErrorAction SilentlyContinue | Select-String -Pattern 'Error ' -First 5
-        if ($errorLines) {
-          Write-Host 'First error lines:'
-          $errorLines | ForEach-Object { Write-Host $_.ToString() }
-        }
-      } catch { Write-Warning "Failed to parse uninstall log: $($_.Exception.Message)" }
-    }
     if ($proc.ExitCode -eq 1603) {
-      Write-Warning 'MSI error 1603: locked files, insufficient privileges, pending reboot, or custom action failure likely.'
+      Write-Warning 'Uninstall returned 1603. Continuing with install (old per-machine install may require manual removal or elevation).'
+    } else {
+      Write-Error "Uninstall failed with exit code $($proc.ExitCode)"
+      if (Test-Path $uninstallLog) {
+        Write-Host "Uninstall log saved: $uninstallLog"
+        try {
+          $errorLines = Get-Content -Path $uninstallLog -ErrorAction SilentlyContinue | Select-String -Pattern 'Error ' -First 5
+          if ($errorLines) {
+            Write-Host 'First error lines:'
+            $errorLines | ForEach-Object { Write-Host $_.ToString() }
+          }
+        } catch { Write-Warning "Failed to parse uninstall log: $($_.Exception.Message)" }
+      }
+      exit $proc.ExitCode
     }
-    exit $proc.ExitCode
+  } else {
+    Write-Host 'Previous version uninstalled.'
   }
   Write-Host 'Previous version uninstalled.'
 } else {
@@ -94,6 +101,7 @@ function Invoke-LaunchApp {
 }
 
 $candidateExePaths = @()
+$candidateExePaths += (Join-Path $Env:LocalAppData 'ComingUpNext\ComingUpNextTray.exe')
 $candidateExePaths += (Join-Path $Env:ProgramFiles 'ComingUpNext\ComingUpNextTray.exe')
 if ($Env:ProgramFiles -and $Env:ProgramFiles -ne $Env:ProgramFiles) { }
 # Safely access ProgramFiles(x86) with ${} syntax
@@ -101,7 +109,7 @@ $pf86 = ${Env:ProgramFiles(x86)}
 if ($pf86) { $candidateExePaths += (Join-Path $pf86 'ComingUpNext\ComingUpNextTray.exe') }
 
 # Probe registry InstallLocation
-$installedKey = Get-ChildItem 'HKLM:SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall' -ErrorAction SilentlyContinue | ForEach-Object { try { Get-ItemProperty $_.PsPath } catch { $null } } | Where-Object { $_.DisplayName -eq $displayName }
+$installedKey = Get-ChildItem 'HKCU:SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall' -ErrorAction SilentlyContinue | ForEach-Object { try { Get-ItemProperty $_.PsPath } catch { $null } } | Where-Object { $_.DisplayName -eq $displayName }
 if ($installedKey -and $installedKey.InstallLocation) {
   $candidateExePaths += (Join-Path $installedKey.InstallLocation 'ComingUpNextTray.exe')
 }
