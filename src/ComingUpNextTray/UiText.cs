@@ -8,6 +8,9 @@ namespace ComingUpNextTray
         /// <summary>Tray icon base application text.</summary>
         internal const string AppTrayText = "ComingUpNext";
 
+        /// <summary>Application title displayed in tray icon tooltip or UI.</summary>
+        internal const string ApplicationTitle = "Coming Up Next";
+
         /// <summary>Context menu item to open the meeting URL.</summary>
         internal const string OpenMeeting = "Open Meeting";
 
@@ -21,7 +24,28 @@ namespace ComingUpNextTray
         internal const string SetCalendarUrl = "Set Calendar URL";
 
         /// <summary>Context menu item text to set the refresh interval minutes.</summary>
-        internal const string SetRefreshMinutes = "Set Refresh Minutes";
+        internal const string SetRefreshMinutes = "Refresh Interval";
+
+        /// <summary>Context menu item to open the calendar URL directly.</summary>
+        internal const string OpenCalendarUrl = "Open Calendar URL";
+
+        /// <summary>Copies the calendar URL to the clipboard.</summary>
+        internal const string CopyCalendarUrl = "Copy Calendar URL";
+
+        /// <summary>Copies the current meeting link to the clipboard.</summary>
+        internal const string CopyMeetingLink = "Copy Meeting Link";
+
+        /// <summary>Context menu item to open the configuration JSON file.</summary>
+        internal const string OpenConfigFile = "Open Config File";
+
+        /// <summary>Context menu item to toggle the icon overlay.</summary>
+        internal const string ToggleOverlay = "Show Overlay";
+
+        /// <summary>About dialog/menu item.</summary>
+        internal const string About = "About";
+
+        /// <summary>Label prefix for version in About dialog.</summary>
+        internal const string VersionLabel = "Version:";
 
         /// <summary>Context menu item text to exit application.</summary>
         internal const string Exit = "Exit";
@@ -34,9 +58,6 @@ namespace ComingUpNextTray
 
         /// <summary>Label describing refresh interval input.</summary>
         internal const string RefreshIntervalLabel = "Refresh interval (minutes):";
-
-        /// <summary>Tooltip fragment indicating a meeting is soon.</summary>
-        internal const string MeetingSoon = "Meeting soon";
 
         /// <summary>Title for configuration error message box.</summary>
         internal const string ConfigErrorTitle = "Config Error";
@@ -67,5 +88,14 @@ namespace ComingUpNextTray
 
         /// <summary>Suffix appended to invalid config file rename.</summary>
         internal const string InvalidSuffix = ".invalid";
+
+        /// <summary>Balloon tip message when meeting starts within 15 minutes.</summary>
+        internal const string MeetingSoonBalloon = "Meeting starts within 15 minutes.";
+
+        /// <summary>Balloon tip message when meeting starts within 5 minutes.</summary>
+        internal const string MeetingVerySoonBalloon = "Meeting starts within 5 minutes.";
+
+        /// <summary>Text shown when there are no upcoming meetings at all.</summary>
+        internal const string NoUpcomingMeetings = "No upcoming meetings";
     }
 }

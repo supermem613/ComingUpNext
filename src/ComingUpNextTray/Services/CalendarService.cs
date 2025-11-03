@@ -91,7 +91,7 @@ namespace ComingUpNextTray.Services
                 return list;
             }
 
-            // ICS lines can be folded: continuation lines start with space or tab. Unfold first.
+            // 1. Unfold lines (RFC5545 3.1) – continuation lines start with space or tab.
             StringBuilder unfolded = new ();
             using (StringReader reader = new (ics))
             {
@@ -120,13 +120,26 @@ namespace ComingUpNextTray.Services
                 }
             }
 
+            // Temporary storage for recurrence handling
             CalendarEntry? current = null;
+            string? currentRRule = null; // Raw RRULE line (after colon)
+            List<(DateTime dt, string? tz)> currentExDates = new (); // EXDATE values
+
+            DateTime now = DateTime.Now; // For recurrence expansion cut-off.
+
             foreach (string raw in unfolded.ToString().Split('\n'))
             {
                 string line = raw.TrimEnd('\r');
+                if (line.Length == 0)
+                {
+                    continue;
+                }
+
                 if (line.Equals("BEGIN:VEVENT", StringComparison.OrdinalIgnoreCase))
                 {
                     current = new CalendarEntry { Title = "(No Title)", StartTime = DateTime.MinValue, EndTime = DateTime.MinValue };
+                    currentRRule = null;
+                    currentExDates.Clear();
                 }
                 else if (line.Equals("END:VEVENT", StringComparison.OrdinalIgnoreCase))
                 {
@@ -137,31 +150,50 @@ namespace ComingUpNextTray.Services
                             current.EndTime = current.StartTime.AddHours(1);
                         }
 
-                        list.Add(current);
+                        // Add base occurrence if in future (or today) and not excluded.
+                        if (!IsExcluded(current.StartTime, currentExDates))
+                        {
+                            list.Add(current);
+                        }
+
+                        // Expand simple weekly recurrences (RRULE FREQ=WEEKLY) to show upcoming meetings.
+                        if (currentRRule != null)
+                        {
+                            foreach (CalendarEntry extra in ExpandRecurrence(current, currentRRule, currentExDates, now))
+                            {
+                                list.Add(extra);
+                            }
+                        }
                     }
 
                     current = null;
+                    currentRRule = null;
+                    currentExDates.Clear();
                 }
                 else if (current != null)
                 {
                     int colonIdx = line.IndexOf(':', StringComparison.Ordinal);
                     if (colonIdx < 0)
                     {
-                        continue;
+                        continue; // malformed line
                     }
 
                     string keyPart = line.Substring(0, colonIdx);
                     string value = line[(colonIdx + 1) ..].Trim();
 
-                    // parameters separated by ; in keyPart
-                    string key = keyPart.Split(';')[0].ToUpperInvariant();
+                    string[] keySegments = keyPart.Split(';');
+                    string key = keySegments[0].ToUpperInvariant();
+                    string? tzid = keySegments.Skip(1)
+                        .Select(seg => seg.StartsWith("TZID=", StringComparison.OrdinalIgnoreCase) ? seg[5..] : null)
+                        .FirstOrDefault(seg => seg != null);
+
                     switch (key)
                     {
                         case "SUMMARY":
                             current.Title = value;
                             break;
                         case "DTSTART":
-                            DateTime start = ParseDate(value);
+                            DateTime start = ParseDate(value, tzid);
                             if (start != DateTime.MinValue)
                             {
                                 current.StartTime = start;
@@ -169,12 +201,27 @@ namespace ComingUpNextTray.Services
 
                             break;
                         case "DTEND":
-                            DateTime end = ParseDate(value);
+                            DateTime end = ParseDate(value, tzid);
                             if (end != DateTime.MinValue)
                             {
                                 current.EndTime = end;
                             }
 
+                            break;
+                        case "EXDATE":
+                            // Comma separated date-times; each may need TZ conversion.
+                            foreach (string part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                            {
+                                DateTime ex = ParseDate(part, tzid);
+                                if (ex != DateTime.MinValue)
+                                {
+                                    currentExDates.Add((ex, tzid));
+                                }
+                            }
+
+                            break;
+                        case "RRULE":
+                            currentRRule = value; // We'll parse later.
                             break;
                         case "URL":
                             TryAssignUrl(current, value);
@@ -198,7 +245,12 @@ namespace ComingUpNextTray.Services
                 }
             }
 
-            return list.OrderBy(e => e.StartTime).ToList();
+            // Return ordered, distinct by StartTime+Title (avoid duplicates if RRULE created original again)
+            return list
+                .OrderBy(e => e.StartTime)
+                .GroupBy(e => (e.StartTime, e.Title))
+                .Select(g => g.First())
+                .ToList();
         }
 
         /// <summary>
@@ -206,10 +258,40 @@ namespace ComingUpNextTray.Services
         /// </summary>
         /// <param name="val">Raw ICS value (e.g. 20240122T130000Z).</param>
         /// <returns>The parsed local DateTime or <see cref="DateTime.MinValue"/> when invalid.</returns>
-        internal static DateTime ParseDate(string val)
+        internal static DateTime ParseDate(string val) => ParseDate(val, null);
+
+        /// <summary>
+        /// Parses a DATE or DATE-TIME field with optional TZID into local time.
+        /// </summary>
+        /// <param name="val">Raw ICS value (e.g. 20240122T130000Z).</param>
+        /// <param name="tzid">Optional timezone identifier from TZID parameter.</param>
+        /// <returns>Local DateTime or <see cref="DateTime.MinValue"/> on failure.</returns>
+        internal static DateTime ParseDate(string val, string? tzid)
         {
             try
             {
+                if (!string.IsNullOrWhiteSpace(tzid))
+                {
+                    // Attempt timezone-aware parsing first (value expected as local wall clock time of tzid).
+                    if (TryParseLocalDateTime(val, out DateTime naive))
+                    {
+                        DateTime unspecified = DateTime.SpecifyKind(naive, DateTimeKind.Unspecified);
+                        try
+                        {
+                            TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById(tzid);
+                            DateTime converted = TimeZoneInfo.ConvertTime(unspecified, tz, TimeZoneInfo.Local);
+                            return converted;
+                        }
+                        catch (TimeZoneNotFoundException)
+                        {
+                            // Fall through to normal parsing.
+                        }
+                        catch (InvalidTimeZoneException)
+                        {
+                        }
+                    }
+                }
+
                 if (val.EndsWith('Z'))
                 {
                     // UTC time
@@ -240,6 +322,151 @@ namespace ComingUpNextTray.Services
             }
 
             return DateTime.MinValue;
+        }
+
+        private static bool TryParseLocalDateTime(string val, out DateTime dt)
+        {
+            if (val.Length == 15 && DateTime.TryParseExact(val, "yyyyMMdd'T'HHmmss", null, DateTimeStyles.None, out dt))
+            {
+                return true;
+            }
+
+            if (val.Length == 8 && DateTime.TryParseExact(val, "yyyyMMdd", null, DateTimeStyles.None, out dt))
+            {
+                return true;
+            }
+
+            dt = default;
+            return false;
+        }
+
+        private static bool IsExcluded(DateTime candidateStart, List<(DateTime dt, string? tz)> exclusions)
+        {
+            // Compare on local time equality; EXDATE converted to local already.
+            return exclusions.Any(e => e.dt == candidateStart);
+        }
+
+        private static IEnumerable<CalendarEntry> ExpandRecurrence(CalendarEntry prototype, string rrule, List<(DateTime dt, string? tz)> exdates, DateTime now)
+        {
+            // Support a limited subset: FREQ=WEEKLY;BYDAY=...;UNTIL=...;INTERVAL=n
+            Dictionary<string, string> parts = rrule.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(p => p.Split('=', 2))
+                .Where(a => a.Length == 2)
+                .ToDictionary(a => a[0].ToUpperInvariant(), a => a[1], StringComparer.OrdinalIgnoreCase);
+
+            if (!parts.TryGetValue("FREQ", out string? freq) || !freq.Equals("WEEKLY", StringComparison.OrdinalIgnoreCase))
+            {
+                yield break; // Not supported.
+            }
+
+            int interval = 1;
+            if (parts.TryGetValue("INTERVAL", out string? intervalStr) && int.TryParse(intervalStr, out int parsedInterval) && parsedInterval > 0)
+            {
+                interval = parsedInterval;
+            }
+
+            // Determine weekdays
+            DayOfWeek[] byDays = Array.Empty<DayOfWeek>();
+            if (parts.TryGetValue("BYDAY", out string? bydayVal))
+            {
+                byDays = bydayVal.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(MapDay)
+                    .Where(d => d.HasValue)
+                    .Select(d => d!.Value)
+                    .ToArray();
+            }
+
+            if (byDays.Length == 0)
+            {
+                byDays = new[] { prototype.StartTime.DayOfWeek }; // fallback to original day
+            }
+
+            DateTime startAnchor = prototype.StartTime; // first DTSTART already in local time.
+
+            // UNTIL handling
+            DateTime untilLimit = now.AddMonths(3); // default 3-month lookahead
+            if (parts.TryGetValue("UNTIL", out string? untilRaw))
+            {
+                DateTime untilParsed = ParseDate(untilRaw);
+                if (untilParsed != DateTime.MinValue && untilParsed > now)
+                {
+                    untilLimit = untilParsed.ToLocalTime();
+                }
+            }
+
+            // Generate occurrences week by week.
+            DateTime generationStart = startAnchor;
+            if (generationStart < now)
+            {
+                // Align to beginning of week containing 'now' relative to startAnchor's week offset.
+                int weeksDiff = (int)((now.Date - startAnchor.Date).TotalDays / 7);
+                int alignedWeeks = Math.Max(0, weeksDiff - 1); // back one week to capture possible today occurrence
+                generationStart = startAnchor.AddDays(alignedWeeks * 7);
+            }
+
+            int safetyCounter = 0;
+
+            // Hard cap to avoid runaway generation
+            while (generationStart <= untilLimit && safetyCounter < 2000)
+            {
+                foreach (DayOfWeek targetDow in byDays)
+                {
+                    DateTime candidate = generationStart.Date;
+                    int diff = targetDow - candidate.DayOfWeek;
+                    if (diff != 0)
+                    {
+                        candidate = candidate.AddDays(diff);
+                    }
+
+                    candidate = candidate.Date + prototype.StartTime.TimeOfDay;
+                    if (candidate <= prototype.StartTime)
+                    {
+                        // Skip original (already added) or earlier
+                        continue;
+                    }
+
+                    if (candidate > untilLimit)
+                    {
+                        continue;
+                    }
+
+                    if (candidate < now)
+                    {
+                        continue; // past occurrence
+                    }
+
+                    if (IsExcluded(candidate, exdates))
+                    {
+                        continue;
+                    }
+
+                    yield return new CalendarEntry
+                    {
+                        Title = prototype.Title,
+                        StartTime = candidate,
+                        EndTime = candidate + (prototype.EndTime - prototype.StartTime),
+                        MeetingUrl = prototype.MeetingUrl,
+                    };
+                }
+
+                generationStart = generationStart.AddDays(7 * interval);
+                safetyCounter++;
+            }
+        }
+
+        private static DayOfWeek? MapDay(string token)
+        {
+            return token.ToUpperInvariant() switch
+            {
+                "MO" => DayOfWeek.Monday,
+                "TU" => DayOfWeek.Tuesday,
+                "WE" => DayOfWeek.Wednesday,
+                "TH" => DayOfWeek.Thursday,
+                "FR" => DayOfWeek.Friday,
+                "SA" => DayOfWeek.Saturday,
+                "SU" => DayOfWeek.Sunday,
+                _ => null,
+            };
         }
 
         private static void TryAssignUrl(CalendarEntry entry, string candidate)

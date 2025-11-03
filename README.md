@@ -31,7 +31,15 @@ URL:https://teams.microsoft.com/l/meetup-join/...
 END:VEVENT
 ```
 
-Timezone handling: `Z` (UTC) times converted to local; floating times (no TZ) treated as local. Date-only values (`YYYYMMDD`) treated as all-day.
+Timezone & recurrence handling:
+ - `TZID=` parameters on `DTSTART`/`DTEND` are respected (converted from that zone to local).
+ - UTC times (`Z` suffix) converted to local.
+ - Floating times (no TZ) treated as local.
+ - Date-only values (`YYYYMMDD`) treated as all-day starting at local midnight.
+ - Simple weekly `RRULE` patterns (e.g. `FREQ=WEEKLY;BYDAY=MO,WE;INTERVAL=1;UNTIL=20261102T160000Z`) are expanded for upcoming occurrences (up to 3 months lookahead or UNTIL limit) including exclusions via matching `EXDATE`.
+ - `EXDATE` entries remove specific occurrences from recurrence expansion.
+
+Limitations: Advanced recurrence (monthly rules, BYSETPOS, COUNT, exceptions with time shifts) is not yet supported.
 
 ## Build & Run
 Requires .NET 9 SDK.

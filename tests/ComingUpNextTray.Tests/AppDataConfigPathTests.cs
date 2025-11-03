@@ -21,26 +21,32 @@ namespace ComingUpNextTray.Tests {
         }
 
         [Fact]
-        public void Save_Creates_File_In_AppData() {
-            string? overridePath = Environment.GetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH");
-            if (!string.IsNullOrWhiteSpace(overridePath)) {
+        public void Save_Creates_File_In_Override_Path_Isolated() {
+            // Use a temp override path to avoid writing into the user's real AppData config.
+            string tempPath = Path.Combine(Path.GetTempPath(), "cun_override_" + Guid.NewGuid() + ".json");
+            Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
+            try {
+                using TrayApplication app = new TrayApplication();
+                string path = app.GetConfigFilePathForTest();
+                Assert.Equal(tempPath, path); // ensure override applied
+                if (File.Exists(path)) {
+                    File.Delete(path);
+                }
+
+                ConfigModel config = new ConfigModel {
+                    CalendarUrl = "https://example.com/calendar.ics",
+                    RefreshMinutes = 15
+                };
+
+                app.SaveConfig(config);
+                Assert.True(File.Exists(path));
+            }
+            finally {
                 Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
+                if (File.Exists(tempPath)) {
+                    File.Delete(tempPath);
+                }
             }
-
-            using TrayApplication app = new TrayApplication();
-            string path = app.GetConfigFilePathForTest();
-            if (File.Exists(path)) {
-                File.Delete(path);
-            }
-
-            // Create a ConfigModel instance
-            ConfigModel config = new ConfigModel {
-                CalendarUrl = "https://example.com/calendar.ics",
-                RefreshMinutes = 15
-            };
-
-            app.SaveConfig(config);
-            Assert.True(File.Exists(path));
         }
     }
 }

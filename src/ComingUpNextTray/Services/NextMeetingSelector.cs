@@ -35,26 +35,9 @@ namespace ComingUpNextTray.Services
                 return "No upcoming meetings";
             }
 
-            TimeSpan delta = next.StartTime - now;
-            string timing;
-            if (delta.TotalMinutes < 1)
-            {
-                timing = "Starting now";
-            }
-            else if (delta.TotalMinutes < 60)
-            {
-                timing = $"In {Math.Round(delta.TotalMinutes)} min";
-            }
-            else if (delta.TotalHours < 24 && next.StartTime.Date == now.Date)
-            {
-                timing = $"In {Math.Round(delta.TotalHours)} h";
-            }
-            else
-            {
-                timing = next.StartTime.ToString("ddd HH:mm", CultureInfo.InvariantCulture);
-            }
-
-            return $"Next: {next.Title} ({timing})";
+            // Show absolute meeting start time instead of relative countdown.
+            string absoluteTime = next.StartTime.ToString("ddd h:mm tt", CultureInfo.GetCultureInfo("en-US"));
+            return $"Next: {next.Title} ({absoluteTime})";
         }
     }
 }

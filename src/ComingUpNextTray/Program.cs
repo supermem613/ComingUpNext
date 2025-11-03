@@ -64,8 +64,13 @@ namespace ComingUpNextTray
         private static void Main()
         {
             ApplicationConfiguration.Initialize();
-            using TrayApplication trayApp = new TrayApplication();
-            Application.Run();
+
+            // Run the WinForms message loop with a custom application context that
+            // owns the tray icon and the underlying application logic. This replaces
+            // the previous "headless" loop that had no NotifyIcon, which caused the
+            // app to appear to do nothing.
+            using TrayContext context = new TrayContext();
+            Application.Run(context);
         }
     }
 }

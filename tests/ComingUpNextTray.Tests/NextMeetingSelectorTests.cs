@@ -18,19 +18,20 @@ namespace ComingUpNextTray.Tests {
         }
 
         [Fact]
-        public void FormatTooltip_InMinutes() {
+        public void FormatTooltip_AbsoluteTimeMinutesAhead() {
             DateTime now = DateTime.Now;
             CalendarEntry meeting = new CalendarEntry { Title = "Soon", StartTime = now.AddMinutes(12), EndTime = now.AddMinutes(42) };
             string text = NextMeetingSelector.FormatTooltip(meeting, now);
-            Assert.Contains("In 12 min", text);
+            // Expect US 12-hour formatted day/time with AM/PM.
+            Assert.Contains(meeting.StartTime.ToString("ddd h:mm tt"), text);
         }
 
         [Fact]
-        public void FormatTooltip_InHoursSameDay() {
+        public void FormatTooltip_AbsoluteTimeHoursAheadSameDay() {
             DateTime now = DateTime.Now.Date.AddHours(8); // 08:00
             CalendarEntry meeting = new CalendarEntry { Title = "Later Today", StartTime = now.AddHours(3), EndTime = now.AddHours(4) }; // 11:00
             string text = NextMeetingSelector.FormatTooltip(meeting, now);
-            Assert.Contains("In 3 h", text);
+            Assert.Contains(meeting.StartTime.ToString("ddd h:mm tt"), text);
         }
 
         [Fact]
@@ -38,8 +39,8 @@ namespace ComingUpNextTray.Tests {
             DateTime now = DateTime.Now.Date.AddHours(20); // evening today
             CalendarEntry meeting = new CalendarEntry { Title = "Tomorrow Meeting", StartTime = now.Date.AddDays(1).AddHours(9), EndTime = now.Date.AddDays(1).AddHours(10) }; // tomorrow 09:00
             string text = NextMeetingSelector.FormatTooltip(meeting, now);
-            // Expect format like: Next: Tomorrow Meeting (Fri 09:00) depending day abbreviation
-            Assert.Contains(meeting.StartTime.ToString("ddd HH:mm"), text);
+            // Expect format like: Next: Tomorrow Meeting (Fri 9:00 AM) depending day abbreviation
+            Assert.Contains(meeting.StartTime.ToString("ddd h:mm tt"), text);
         }
 
         [Fact]
