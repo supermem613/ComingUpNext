@@ -8,24 +8,15 @@ namespace ComingUpNextTray.Tests {
         [Fact]
         public void Malformed_Config_Renames_File() {
             string tempPath = Path.Combine(Path.GetTempPath(), "cun_malformed_" + Guid.NewGuid() + ".json");
-            // Create malformed file BEFORE constructing app so first LoadConfig triggers rename
             File.WriteAllText(tempPath, "{ invalid json");
-            Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", tempPath);
-            try {
-                using (TrayApplication app = new TrayApplication()) {
-                    Assert.True(app.WasConfigErrorDetectedForTest()); // detection flagged
-                }
-                Assert.True(File.Exists(tempPath + ".invalid"));
+            using (TrayApplication app = new TrayApplication(tempPath)) {
+                Assert.True(app.WasConfigErrorDetectedForTest());
             }
-            finally {
-                Environment.SetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH", null);
-                if (File.Exists(tempPath)) {
-                    File.Delete(tempPath);
-                }
-
-                if (File.Exists(tempPath + ".invalid")) {
-                    File.Delete(tempPath + ".invalid");
-                }
+            Assert.True(File.Exists(tempPath + ".invalid"));
+            File.Delete(tempPath + ".invalid");
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
             }
         }
     }

@@ -13,7 +13,6 @@ namespace ComingUpNextTray
     internal sealed class TrayApplication : IDisposable
     {
         private readonly string _configPath;
-        private readonly bool _isTestMode;
         private readonly CalendarService _calendarService = new CalendarService();
         private string? _calendarUrl;
         private CalendarEntry? _nextMeeting;
@@ -27,42 +26,20 @@ namespace ComingUpNextTray
 
         /// <summary>Initializes a new instance of the <see cref="TrayApplication"/> class.</summary>
         public TrayApplication()
+            : this(Path.Combine(AppContext.BaseDirectory, Program.ConfigFileName))
+        {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="TrayApplication"/> class for a specific config path (used by tests).
+        /// </summary>
+        /// <param name="configPath">Absolute path to configuration JSON.</param>
+        internal TrayApplication(string configPath)
         {
             this._calendarUrl = string.Empty;
             this._nextMeeting = null;
             this._configErrorDetected = false;
-            string? overridePath = Environment.GetEnvironmentVariable("COMINGUPNEXT_TEST_CONFIG_PATH");
-            if (!string.IsNullOrWhiteSpace(overridePath))
-            {
-                this._configPath = overridePath!;
-                this._isTestMode = true;
-            }
-            else
-            {
-                // New per-user install model: config lives beside executable in install folder (LocalAppData\ComingUpNext).
-                string installDir = AppContext.BaseDirectory;
-                string newPath = Path.Combine(installDir, Program.ConfigFileName);
-
-                // Migration: if legacy AppData config exists and new file absent, move it.
-                try
-                {
-                    string legacyAppData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Program.AppFolderName, Program.ConfigFileName);
-                    if (!File.Exists(newPath) && File.Exists(legacyAppData))
-                    {
-                        File.Copy(legacyAppData, newPath, overwrite: false);
-                    }
-                }
-                catch (IOException)
-                {
-                }
-                catch (UnauthorizedAccessException)
-                {
-                }
-
-                this._configPath = newPath;
-                this._isTestMode = false;
-            }
-
+            this._configPath = configPath;
             this.LoadConfig();
         }
 
@@ -86,6 +63,12 @@ namespace ComingUpNextTray
             /// <summary>The start time has passed (meeting has begun).</summary>
             Started,
         }
+
+        /// <summary>
+        /// Indicates whether the application is in legacy test mode (always false after legacy removal).
+        /// </summary>
+        /// <returns><c>false</c> always; retained for test compatibility.</returns>
+        internal static bool IsTestModeForTest() => false;
 
         /// <summary>Disposes managed resources.</summary>
         public void Dispose()
@@ -227,7 +210,6 @@ namespace ComingUpNextTray
 
         /// <summary>Indicates whether the application is running in test mode (override path used).</summary>
         /// <returns><c>true</c> if test mode.</returns>
-        internal bool IsTestModeForTest() => this._isTestMode;
 
         /// <summary>Gets the next meeting for UI display (may be null).</summary>
         /// <returns>The next meeting or <c>null</c>.</returns>
@@ -327,14 +309,8 @@ namespace ComingUpNextTray
                     this._refreshMinutes = rm;
                 }
 
-                // Skip physical disk writes in test scenarios opting out to avoid polluting user AppData.
-                // This is activated when tests set COMINGUPNEXT_TEST_NO_WRITES=1 and no explicit override path was provided.
-                bool skipWrites = !this._isTestMode && string.Equals(Environment.GetEnvironmentVariable("COMINGUPNEXT_TEST_NO_WRITES"), "1", StringComparison.Ordinal);
-                if (!skipWrites)
-                {
-                    string json = JsonSerializer.Serialize(config, JsonSerializerOptionsCache.IndentedOptions);
-                    File.WriteAllText(this._configPath, json);
-                }
+                string json = JsonSerializer.Serialize(config, JsonSerializerOptionsCache.IndentedOptions);
+                File.WriteAllText(this._configPath, json);
             }
             catch (Exception ex)
             {
@@ -397,13 +373,6 @@ namespace ComingUpNextTray
             }
         }
 
-        // Legacy private method kept for test compatibility (TooltipTests uses reflection to invoke it).
-        // Actual balloon logic moved to TrayContext; this is now a no-op.
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("StyleCop.CSharp.OrderingRules", "SA1202:Elements should be ordered by access", Justification = "Legacy test compatibility method kept for tests.")]
-        private void MaybeShowBalloon()
-        {
-            // Intentionally left blank; reference instance field to satisfy analyzer ordering rules.
-            _ = this._calendarUrl;
-        }
+        // Removed legacy MaybeShowBalloon method.
     }
 }
