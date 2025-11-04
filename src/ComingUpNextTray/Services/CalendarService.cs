@@ -229,16 +229,62 @@ namespace ComingUpNextTray.Services
                         case "URL":
                             TryAssignUrl(current, value);
                             break;
+                        case "ATTACH":
+                            // Some calendars put join links in ATTACH fields.
+                            TryAssignUrl(current, value);
+                            break;
+                        case "X-ALT-DESC":
+                            // HTML formatted description may include anchors; fall through to DESCRIPTION handling below.
+                            goto case "DESCRIPTION";
                         case "DESCRIPTION":
                             if (current.MeetingUrl == null)
                             {
-                                int idx = value.IndexOf("http", StringComparison.OrdinalIgnoreCase);
-                                if (idx >= 0)
+                                // Try to extract href="..." or href='...' from HTML descriptions (X-ALT-DESC or DESCRIPTION with HTML).
+                                int hrefIdx = -1;
+                                string? href = null;
+
+                                // Look for href="..."
+                                hrefIdx = value.IndexOf("href=\"", StringComparison.OrdinalIgnoreCase);
+                                if (hrefIdx >= 0)
                                 {
-                                    string? segment = value[idx..].Split('\n', ' ', '\r', '\t').FirstOrDefault();
-                                    if (!string.IsNullOrWhiteSpace(segment))
+                                    int hrefStart = hrefIdx + 6; // length of href="
+                                    int hrefEnd = value.IndexOf('"', hrefStart);
+                                    if (hrefEnd > hrefStart)
                                     {
-                                        TryAssignUrl(current, segment.Trim());
+                                        href = value[hrefStart..hrefEnd];
+                                    }
+                                }
+
+                                // Look for href='...'
+                                if (href is null)
+                                {
+                                    hrefIdx = value.IndexOf("href='", StringComparison.OrdinalIgnoreCase);
+                                    if (hrefIdx >= 0)
+                                    {
+                                        int hrefStart2 = hrefIdx + 6; // length of href='
+                                        int hrefEnd2 = value.IndexOf('\'', hrefStart2);
+                                        if (hrefEnd2 > hrefStart2)
+                                        {
+                                            href = value[hrefStart2..hrefEnd2];
+                                        }
+                                    }
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(href))
+                                {
+                                    TryAssignUrl(current, href.Trim());
+                                }
+                                else
+                                {
+                                    // Fallback: simple http substring extraction (existing behavior).
+                                    int idx = value.IndexOf("http", StringComparison.OrdinalIgnoreCase);
+                                    if (idx >= 0)
+                                    {
+                                        string? segment = value[idx..].Split('\n', ' ', '\r', '\t').FirstOrDefault();
+                                        if (!string.IsNullOrWhiteSpace(segment))
+                                        {
+                                            TryAssignUrl(current, segment.Trim());
+                                        }
                                     }
                                 }
                             }
