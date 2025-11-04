@@ -62,5 +62,17 @@ namespace ComingUpNextTray.Tests {
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
             Assert.Empty(result); // should skip since no DTSTART
         }
+
+        [Fact]
+        public void ParseIcs_RRULEWithPastUntil_DoesNotGenerateFutureOccurrences()
+        {
+            // DTSTART in past, RRULE UNTIL set to a past date -> should not generate future occurrences
+            string ics = "BEGIN:VEVENT\nSUMMARY:Past Series\nDTSTART:20230101T100000Z\nRRULE:FREQ=WEEKLY;UNTIL=20230131T235959Z\nEND:VEVENT";
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
+            // Depending on current date this might include only the original occurrences in January 2023,
+            // but must not produce any future dates. Ensure all returned starts are <= UNTIL.
+            DateTime until = DateTime.SpecifyKind(new DateTime(2023, 1, 31, 23, 59, 59), DateTimeKind.Utc).ToLocalTime();
+            Assert.All(result, e => Assert.True(e.StartTime <= until, "Found a generated occurrence after UNTIL"));
+        }
     }
 }

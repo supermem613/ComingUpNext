@@ -387,8 +387,12 @@ namespace ComingUpNextTray.Services
             DateTime untilLimit = now.AddMonths(3); // default 3-month lookahead
             if (parts.TryGetValue("UNTIL", out string? untilRaw))
             {
+                // Honor UNTIL even when it's in the past. UNTIL defines the last valid
+                // recurrence date; if it's before 'now' no future recurrences should be
+                // generated. Previously we only applied UNTIL if it was > now which
+                // could allow generation of future meetings incorrectly.
                 DateTime untilParsed = ParseDate(untilRaw);
-                if (untilParsed != DateTime.MinValue && untilParsed > now)
+                if (untilParsed != DateTime.MinValue)
                 {
                     untilLimit = untilParsed.ToLocalTime();
                 }
