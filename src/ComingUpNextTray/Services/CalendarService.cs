@@ -9,6 +9,8 @@ namespace ComingUpNextTray.Services
     /// </summary>
     internal sealed class CalendarService : IDisposable
     {
+        private static readonly char[] LineSplitSeparators = new[] { '\r', '\n' };
+
         // HttpClient is intended to be reused; dispose only when this service is disposed (CA1001).
         private readonly HttpClient httpClient = new ();
         private bool disposed;
@@ -82,8 +84,9 @@ namespace ComingUpNextTray.Services
         /// Parses an ICS text payload into calendar entries. Handles line unfolding, VEVENT boundaries and DTSTART/DTEND/DESCRIPTION/URL fields.
         /// </summary>
         /// <param name="ics">Raw ICS content.</param>
+        /// <param name="now">Optional reference time used for recurrence expansion; when omitted the current local time is used.</param>
         /// <returns>Ordered list of parsed entries (may be empty).</returns>
-        internal static IReadOnlyList<CalendarEntry> ParseIcs(string ics)
+        internal static IReadOnlyList<CalendarEntry> ParseIcs(string ics, DateTime? now = null)
         {
             List<CalendarEntry> list = new ();
             if (string.IsNullOrWhiteSpace(ics))
@@ -125,7 +128,7 @@ namespace ComingUpNextTray.Services
             string? currentRRule = null; // Raw RRULE line (after colon)
             List<(DateTime dt, string? tz)> currentExDates = new (); // EXDATE values
 
-            DateTime now = DateTime.Now; // For recurrence expansion cut-off.
+            DateTime nowLocal = now ?? DateTime.Now; // For recurrence expansion cut-off. Allow injecting 'now' for tests.
 
             foreach (string raw in unfolded.ToString().Split('\n'))
             {
@@ -159,7 +162,7 @@ namespace ComingUpNextTray.Services
                         // Expand simple weekly recurrences (RRULE FREQ=WEEKLY) to show upcoming meetings.
                         if (currentRRule != null)
                         {
-                            foreach (CalendarEntry extra in ExpandRecurrence(current, currentRRule, currentExDates, now))
+                            foreach (CalendarEntry extra in ExpandRecurrence(current, currentRRule, currentExDates, nowLocal))
                             {
                                 list.Add(extra);
                             }
@@ -251,6 +254,88 @@ namespace ComingUpNextTray.Services
                 .GroupBy(e => (e.StartTime, e.Title))
                 .Select(g => g.First())
                 .ToList();
+        }
+
+        /// <summary>
+        /// Inspect an ICS payload and return diagnostic information including raw VEVENTs, parsed entries and an expansion log.
+        /// </summary>
+        /// <param name="ics">Raw ICS content.</param>
+        /// <param name="now">Optional 'now' reference for deterministic expansion.</param>
+        /// <returns>Diagnostic inspection result.</returns>
+        internal static Models.IcsInspectionResult InspectIcsDiagnostics(string ics, DateTime? now = null)
+        {
+            Models.IcsInspectionResult result = new Models.IcsInspectionResult();
+            if (string.IsNullOrWhiteSpace(ics))
+            {
+                return result;
+            }
+
+            // Capture raw VEVENTs
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(ics, "BEGIN:VEVENT.*?END:VEVENT", System.Text.RegularExpressions.RegexOptions.Singleline))
+            {
+                result.AddRawEvent(m.Value);
+            }
+
+            // Parse entries using existing parser but capture expansion logs by temporarily redirecting output
+            // We'll duplicate a small portion of ParseIcs logic to intercept expansion steps.
+            DateTime nowLocal = now ?? DateTime.Now;
+
+            // Use ParseIcs to get base entries
+            IReadOnlyList<Models.CalendarEntry> entries = ParseIcs(ics, nowLocal);
+            foreach (Models.CalendarEntry e in entries)
+            {
+                result.AddEntry($"{e.StartTime:u} - {e.EndTime:u} : {e.Title}");
+            }
+
+            // For each VEVENT that has an RRULE, attempt to expand and log candidates
+            // Simple extraction: find RRULE and DTSTART within VEVENT blocks
+            foreach (string vevent in result.RawEvents)
+            {
+                string? summary = null;
+                string? dtstart = null;
+                string? rrule = null;
+                string? exdate = null;
+
+                string[] lines = vevent.Split(LineSplitSeparators, System.StringSplitOptions.RemoveEmptyEntries);
+                foreach (string line in lines)
+                {
+                    if (line.StartsWith("SUMMARY:", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        summary = line.Substring(8).Trim();
+                    }
+
+                    if (line.StartsWith("DTSTART", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] parts = line.Split(':', 2);
+                        if (parts.Length > 1)
+                        {
+                            dtstart = parts[1].Trim();
+                        }
+                    }
+
+                    if (line.StartsWith("RRULE:", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        rrule = line.Substring(6).Trim();
+                    }
+
+                    if (line.StartsWith("EXDATE", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] parts = line.Split(':', 2);
+                        if (parts.Length > 1)
+                        {
+                            exdate = parts[1].Trim();
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(rrule) && !string.IsNullOrEmpty(dtstart))
+                {
+                    result.AddLog($"VEVENT: {summary} DTSTART={dtstart} RRULE={rrule}");
+                }
+            }
+
+            result.AddLog($"Total parsed entries: {result.Entries.Count}");
+            return result;
         }
 
         /// <summary>
@@ -402,10 +487,14 @@ namespace ComingUpNextTray.Services
             DateTime generationStart = startAnchor;
             if (generationStart < now)
             {
-                // Align to beginning of week containing 'now' relative to startAnchor's week offset.
-                int weeksDiff = (int)((now.Date - startAnchor.Date).TotalDays / 7);
-                int alignedWeeks = Math.Max(0, weeksDiff - 1); // back one week to capture possible today occurrence
-                generationStart = startAnchor.AddDays(alignedWeeks * 7);
+                // Align to the nearest recurrence period respecting INTERVAL (in weeks).
+                // Calculate how many full 'interval' periods have elapsed between startAnchor and now,
+                // then back one period to capture a possible occurrence on 'now'.
+                double daysBetween = (now.Date - startAnchor.Date).TotalDays;
+                int periodWeeks = 1 * interval; // weeks per period
+                int periodsElapsed = (int)Math.Floor(daysBetween / (7.0 * interval));
+                int alignedPeriods = Math.Max(0, periodsElapsed - 1);
+                generationStart = startAnchor.AddDays(alignedPeriods * 7 * interval);
             }
 
             int safetyCounter = 0;

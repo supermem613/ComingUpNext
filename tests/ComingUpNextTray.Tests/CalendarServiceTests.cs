@@ -74,5 +74,19 @@ namespace ComingUpNextTray.Tests {
             DateTime until = DateTime.SpecifyKind(new DateTime(2023, 1, 31, 23, 59, 59), DateTimeKind.Utc).ToLocalTime();
             Assert.All(result, e => Assert.True(e.StartTime <= until, "Found a generated occurrence after UNTIL"));
         }
+
+        [Fact]
+        public void ParseIcs_BiweeklyByDay_FindsMeetingOnUntilBoundary()
+        {
+            // VEVENT copied from user's calendar: biweekly Tuesday 09:05 PT, UNTIL 2026-11-03T17:05Z
+            string ics = "BEGIN:VEVENT\nRRULE:FREQ=WEEKLY;UNTIL=20261103T170500Z;INTERVAL=2;BYDAY=TU;WKST=SU\nEXDATE;TZID=Pacific Standard Time:20250729T090500,20250923T090500\nUID:uid\nSUMMARY:1:1 Marcus, Bhavesh\nDTSTART;TZID=Pacific Standard Time:20250422T090500\nDTEND;TZID=Pacific Standard Time:20250422T093000\nSTATUS:CONFIRMED\nEND:VEVENT";
+
+            // Use a deterministic 'now' on 2025-11-04 to see if an occurrence exists on that date
+            DateTime now = new DateTime(2025, 11, 4, 0, 0, 0, DateTimeKind.Local);
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            // There should be at least one entry whose StartTime.Date equals 2025-11-04 in local time
+            Assert.Contains(result, e => e.StartTime.Date == now.Date && e.Title.Contains("1:1"));
+        }
     }
 }
