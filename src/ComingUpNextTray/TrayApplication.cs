@@ -22,6 +22,7 @@ namespace ComingUpNextTray
         private DateTime _lastRefreshUtc;
         private int _refreshMinutes = 5;
         private bool _showHoverWindow = true;
+        private string? _lastFetchError;
         private int? _hoverWindowLeft;
         private int? _hoverWindowTop;
         private int? _hoverWindowWidth;
@@ -120,12 +121,24 @@ namespace ComingUpNextTray
             ObjectDisposedException.ThrowIf(this._disposed, nameof(TrayApplication));
             if (string.IsNullOrWhiteSpace(this._calendarUrl))
             {
+                this._lastFetchError = null;
                 return false;
             }
 
             try
             {
-                IReadOnlyList<CalendarEntry> entries = await this._calendarService.FetchAsync(this._calendarUrl!, ct).ConfigureAwait(false);
+                // Try the error-propagating fetch so we can show users what went wrong.
+                IReadOnlyList<CalendarEntry> entries;
+                if (Uri.TryCreate(this._calendarUrl, UriKind.Absolute, out var uri))
+                {
+                    entries = await this._calendarService.FetchWithErrorsAsync(uri, ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    entries = Array.Empty<CalendarEntry>();
+                }
+
+                this._lastFetchError = null;
                 this._lastEntries = entries;
                 this._nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now);
                 this._lastRefreshUtc = DateTime.UtcNow;
@@ -133,6 +146,22 @@ namespace ComingUpNextTray
             }
             catch (OperationCanceledException)
             {
+                return false;
+            }
+            catch (System.Net.Http.HttpRequestException ex)
+            {
+                // Network/HTTP error
+                this._lastFetchError = ex.Message;
+                this._lastEntries = Array.Empty<CalendarEntry>();
+                this._nextMeeting = null;
+                return false;
+            }
+            catch (System.Text.Json.JsonException ex)
+            {
+                // Parsing/format errors
+                this._lastFetchError = ex.Message;
+                this._lastEntries = Array.Empty<CalendarEntry>();
+                this._nextMeeting = null;
                 return false;
             }
         }
@@ -176,7 +205,15 @@ namespace ComingUpNextTray
         internal string BuildTooltipForTest(DateTime now)
         {
             IconState state = this.ComputeIconState(now);
-            string tooltip = state == IconState.NoCalendar ? UiText.NoCalendarConfigured : NextMeetingSelector.FormatTooltip(this._nextMeeting, now);
+            string tooltip;
+            if (!string.IsNullOrEmpty(this._lastFetchError))
+            {
+                tooltip = UiText.FetchErrorPrefix + this._lastFetchError;
+            }
+            else
+            {
+                tooltip = state == IconState.NoCalendar ? UiText.NoCalendarConfigured : NextMeetingSelector.FormatTooltip(this._nextMeeting, now);
+            }
 
             if (state == IconState.DistantFuture)
             {
@@ -268,6 +305,12 @@ namespace ComingUpNextTray
         /// <summary>Gets the UTC timestamp when the calendar was last refreshed.</summary>
         /// <returns>Refresh UTC timestamp.</returns>
         internal DateTime GetLastRefreshUtcForUi() => this._lastRefreshUtc;
+
+        /// <summary>
+        /// Gets the last fetch error message, if any, for UI display.
+        /// </summary>
+        /// <returns>Error message or null.</returns>
+        internal string? GetLastFetchErrorForUi() => this._lastFetchError;
 
         /// <summary>Gets configured refresh interval.</summary>
         /// <returns>Minutes.</returns>

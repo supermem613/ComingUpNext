@@ -67,11 +67,19 @@ namespace ComingUpNextTray
         /// </summary>
         /// <param name="meeting">Next meeting or null.</param>
         /// <param name="now">Reference time for formatting.</param>
-        /// <param name="overlayToken">Optional overlay token (e.g. "5" or "1h") to display after the title as "(In X)".</param>
+    /// <param name="overlayToken">Optional overlay token (e.g. "5" or "1h") to display after the title as "(In X)".</param>
+    /// <param name="fetchError">Optional fetch error message to display instead of meeting information.</param>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1303:Do not pass literals as localized parameters", Justification = "Using centralized UiText constants; localization pending.")]
-        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null)
+        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null)
         {
-            if (meeting is null)
+            // If an error occurred during fetch, display the error prominently instead of meeting info.
+            if (!string.IsNullOrEmpty(fetchError))
+            {
+                this.titleLabel.Text = UiText.FetchErrorPrefix + fetchError;
+                this.timeLabel.Text = string.Empty;
+                this.currentMeeting = null;
+            }
+            else if (meeting is null)
             {
                 this.titleLabel.Text = UiText.NoUpcomingMeetings;
                 this.timeLabel.Text = string.Empty;

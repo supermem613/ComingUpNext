@@ -188,7 +188,10 @@ namespace ComingUpNextTray
                     if (this.toggleHoverWindowItem?.Checked == true && this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
                     {
                         string overlayTokenNow = this.app.GetOverlayText(now);
-                        this.hoverWindow.UpdateMeeting(meeting, now, overlayTokenNow);
+
+                        // Provide last fetch error if present so hover can prefer showing it.
+                        string? fetchErr = this.app.GetLastFetchErrorForUi();
+                        this.hoverWindow.UpdateMeeting(meeting, now, overlayTokenNow, fetchErr);
 
                         // update colors using central helper
                         double? minutes2 = meeting is not null ? (meeting.StartTime - now).TotalMinutes : null;
@@ -204,7 +207,7 @@ namespace ComingUpNextTray
             {
                 this.toggleHoverWindowItem!.Checked = true;
                 this.hoverWindow = new HoverWindow();
-                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now));
+                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now), this.app.GetLastFetchErrorForUi());
 
                 // Restore saved position if available, otherwise position near mouse
                 int? savedLeft = this.app.GetHoverWindowLeftForUi();
@@ -337,7 +340,7 @@ namespace ComingUpNextTray
                     DateTime nowLocal = DateTime.Now;
                     CalendarEntry? meeting = this.app.GetNextMeetingForUi();
                     string overlayTokenNow = this.app.GetOverlayText(nowLocal);
-                    this.hoverWindow.UpdateMeeting(meeting, nowLocal, overlayTokenNow);
+                    this.hoverWindow.UpdateMeeting(meeting, nowLocal, overlayTokenNow, this.app.GetLastFetchErrorForUi());
                     TrayApplication.IconState state = this.app.ComputeIconState(nowLocal);
                     double? minutes2 = meeting is not null ? (meeting.StartTime - nowLocal).TotalMinutes : null;
                     (Color bg2, Color fg2) = MeetingColorHelper.GetColors(state, minutes2);
@@ -380,7 +383,17 @@ namespace ComingUpNextTray
             CalendarEntry? second = this.app.GetSecondMeetingForUi();
 
             // Update display items text.
-            this.nextMeetingDisplayItem.Text = next is null ? UiText.NoUpcomingMeetings : NextMeetingSelector.FormatTooltip(next, DateTime.Now);
+            // If a fetch error occurred, prefer showing the error message instead of "No upcoming meetings".
+            string? fetchErr = this.app.GetLastFetchErrorForUi();
+            if (!string.IsNullOrEmpty(fetchErr))
+            {
+                this.nextMeetingDisplayItem.Text = UiText.FetchErrorPrefix + fetchErr;
+            }
+            else
+            {
+                this.nextMeetingDisplayItem.Text = next is null ? UiText.NoUpcomingMeetings : NextMeetingSelector.FormatTooltip(next, DateTime.Now);
+            }
+
             this.secondMeetingDisplayItem.Text = second is null ? string.Empty : NextMeetingSelector.FormatTooltip(second, DateTime.Now);
             this.secondMeetingDisplayItem.Visible = second is not null;
             string calendarUrl = this.app.GetCalendarUrlForUi();
@@ -424,7 +437,7 @@ namespace ComingUpNextTray
                     this.hoverWindow = new HoverWindow();
                 }
 
-                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now));
+                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now), this.app.GetLastFetchErrorForUi());
 
                 // choose colors consistent with overlay computation
                 Color bg = Color.Black;

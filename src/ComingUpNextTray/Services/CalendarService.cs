@@ -67,6 +67,45 @@ namespace ComingUpNextTray.Services
         }
 
         /// <summary>
+        /// Similar to <see cref="FetchAsync(Uri, CancellationToken)"/> but propagates failures as exceptions
+        /// so callers can inspect error messages. Use this when the caller wants to display errors to the user.
+        /// </summary>
+        /// <param name="calendarIcsUri">Absolute ICS calendar feed URI.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>List of parsed calendar entries.</returns>
+        /// <exception cref="HttpRequestException">Thrown when an HTTP error occurs (non-success status or network failure).</exception>
+        public async Task<IReadOnlyList<CalendarEntry>> FetchWithErrorsAsync(Uri calendarIcsUri, CancellationToken ct = default)
+        {
+            using HttpResponseMessage resp = await this.httpClient.GetAsync(calendarIcsUri, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+            {
+                // Build a more helpful message for UI display.
+                int code = (int)resp.StatusCode;
+                string reason = resp.ReasonPhrase ?? resp.StatusCode.ToString();
+                string loc = resp.Headers.Location?.ToString() ?? string.Empty;
+                string hint = string.Empty;
+                if (code >= 300 && code < 400)
+                {
+                    hint = " Redirected location may require authentication.";
+                }
+                else if (code == 401 || code == 403)
+                {
+                    hint = " Calendar feed appears to require authentication (401/403).";
+                }
+
+                string msg = !string.IsNullOrEmpty(loc)
+                    ? $"HTTP {code} {reason} -> {loc}.{hint}"
+                    : $"HTTP {code} {reason}.{hint}";
+
+                throw new HttpRequestException(msg);
+            }
+
+            byte[] bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            string text = Encoding.UTF8.GetString(bytes);
+            return ParseIcs(text);
+        }
+
+        /// <summary>
         /// Disposes the underlying <see cref="HttpClient"/> instance used by this service.
         /// </summary>
         public void Dispose()

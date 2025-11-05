@@ -97,5 +97,8 @@ namespace ComingUpNextTray
 
         /// <summary>Text shown when there are no upcoming meetings at all.</summary>
         internal const string NoUpcomingMeetings = "No upcoming meetings";
+
+        /// <summary>Generic network/calendar fetch error placeholder prefix.</summary>
+        internal const string FetchErrorPrefix = "Error: ";
     }
 }
