@@ -15,6 +15,7 @@ namespace ComingUpNextTray
         private readonly Label titleLabel;
         private readonly Label timeLabel;
         private Point dragStart;
+        private CalendarEntry? currentMeeting;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="HoverWindow"/> class.
@@ -52,7 +53,10 @@ namespace ComingUpNextTray
             foreach (Control c in this.Controls)
             {
                 c.MouseDown += this.OnMouseDown_Move;
+                c.MouseDoubleClick += this.OnMouseDoubleClick_OpenMeeting;
             }
+
+            this.MouseDoubleClick += this.OnMouseDoubleClick_OpenMeeting;
 
             // Default size
             this.Size = new Size(220, 60);
@@ -71,9 +75,11 @@ namespace ComingUpNextTray
             {
                 this.titleLabel.Text = UiText.NoUpcomingMeetings;
                 this.timeLabel.Text = string.Empty;
+                this.currentMeeting = null;
             }
             else
             {
+                this.currentMeeting = meeting;
                 string title = meeting.Title ?? "Untitled";
 
                 // Only append "(In X)" for meaningful overlay tokens (numbers or hour tokens).
@@ -101,7 +107,7 @@ namespace ComingUpNextTray
             this.Size = new Size(Math.Min(width, 420), height);
         }
 
-        /// <summary>
+    /// <summary>
         /// Sets the background and foreground to match the specified colors.
         /// </summary>
         /// <param name="background">Background color.</param>
@@ -150,6 +156,30 @@ namespace ComingUpNextTray
             this.MouseMove -= this.OnMouseMove_Drag;
             this.MouseUp -= this.OnMouseUp_EndDrag;
             this.Capture = false;
+        }
+
+        private void OnMouseDoubleClick_OpenMeeting(object? sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            try
+            {
+                if (this.currentMeeting?.MeetingUrl != null)
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = this.currentMeeting.MeetingUrl.ToString(), UseShellExecute = true });
+                }
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                // ignore failures to launch
+            }
+            catch (InvalidOperationException)
+            {
+                // ignore
+            }
         }
     }
 }
