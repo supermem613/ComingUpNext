@@ -16,5 +16,20 @@ namespace ComingUpNextTray.Models
 
         /// <summary>Gets or sets the config schema version.</summary>
         public int Version { get; set; } = CurrentVersion;
+
+        /// <summary>Gets or sets a value indicating whether the hover window is shown.</summary>
+        public bool ShowHoverWindow { get; set; } = true;
+
+        /// <summary>Gets or sets saved left coordinate of hover window (screen coordinates).</summary>
+        public int? HoverWindowLeft { get; set; }
+
+        /// <summary>Gets or sets saved top coordinate of hover window (screen coordinates).</summary>
+        public int? HoverWindowTop { get; set; }
+
+        /// <summary>Gets or sets saved width of hover window in pixels.</summary>
+        public int? HoverWindowWidth { get; set; }
+
+        /// <summary>Gets or sets saved height of hover window in pixels.</summary>
+        public int? HoverWindowHeight { get; set; }
     }
 }

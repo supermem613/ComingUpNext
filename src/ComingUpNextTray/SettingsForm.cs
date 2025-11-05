@@ -26,6 +26,16 @@ namespace ComingUpNextTray
             // Populate current calendar URL.
             string current = this.app.GetCalendarUrlForUi();
             this.textCalendarUrl.Text = current;
+
+            // Populate hover window enabled state
+            try
+            {
+                this.checkShowHoverWindow.Checked = this.app.GetShowHoverWindowForUi();
+            }
+            catch (System.InvalidOperationException)
+            {
+                // ignore if app not fully initialized
+            }
         }
 
         private void OnSaveClick(object? sender, EventArgs e)
@@ -41,6 +51,9 @@ namespace ComingUpNextTray
 
             // Accept empty to clear URL.
             this.app.SetCalendarUrl(input);
+
+            // Persist hover window enabled state
+            this.app.SetShowHoverWindow(this.checkShowHoverWindow.Checked);
             this.DialogResult = DialogResult.OK;
             this.Close();
         }

@@ -36,7 +36,9 @@ namespace ComingUpNextTray.Services
             }
 
             // Show absolute meeting start time instead of relative countdown.
-            string absoluteTime = next.StartTime.ToString("ddd h:mm tt", CultureInfo.GetCultureInfo("en-US"));
+            CultureInfo culture = CultureInfo.GetCultureInfo("en-US");
+            string timeFormat = next.StartTime.Date == now.Date ? "h:mm tt" : "ddd h:mm tt";
+            string absoluteTime = next.StartTime.ToString(timeFormat, culture);
             return $"Next: {next.Title} ({absoluteTime})";
         }
     }

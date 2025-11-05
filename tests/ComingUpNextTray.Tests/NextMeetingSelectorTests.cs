@@ -22,8 +22,8 @@ namespace ComingUpNextTray.Tests {
             DateTime now = DateTime.Now;
             CalendarEntry meeting = new CalendarEntry { Title = "Soon", StartTime = now.AddMinutes(12), EndTime = now.AddMinutes(42) };
             string text = NextMeetingSelector.FormatTooltip(meeting, now);
-            // Expect US 12-hour formatted day/time with AM/PM.
-            Assert.Contains(meeting.StartTime.ToString("ddd h:mm tt"), text);
+            // Expect US 12-hour formatted time with AM/PM; for same-day meetings we omit day-of-week.
+            Assert.Contains(meeting.StartTime.ToString("h:mm tt"), text);
         }
 
         [Fact]
@@ -31,7 +31,8 @@ namespace ComingUpNextTray.Tests {
             DateTime now = DateTime.Now.Date.AddHours(8); // 08:00
             CalendarEntry meeting = new CalendarEntry { Title = "Later Today", StartTime = now.AddHours(3), EndTime = now.AddHours(4) }; // 11:00
             string text = NextMeetingSelector.FormatTooltip(meeting, now);
-            Assert.Contains(meeting.StartTime.ToString("ddd h:mm tt"), text);
+            // Same-day meeting: assert time-only formatting (no day-of-week)
+            Assert.Contains(meeting.StartTime.ToString("h:mm tt"), text);
         }
 
         [Fact]

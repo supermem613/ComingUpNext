@@ -20,6 +20,8 @@ namespace ComingUpNextTray
         private readonly ToolStripMenuItem secondMeetingDisplayItem; // shows formatted second meeting
         private readonly System.Windows.Forms.Timer refreshTimer;
         private readonly System.Windows.Forms.Timer overlayTimer; // updates icon/tooltip more frequently
+        private ToolStripMenuItem? toggleHoverWindowItem;
+        private HoverWindow? hoverWindow;
         private bool disposed;
         private Icon? baseIcon;
         private bool refreshInProgress;
@@ -51,6 +53,8 @@ namespace ComingUpNextTray
             ToolStripMenuItem setCalendarUrlItem = new ToolStripMenuItem(UiText.SetCalendarUrl, null, this.OnSetCalendarUrlClick);
             ToolStripMenuItem openConfigFolderItem = new ToolStripMenuItem(UiText.OpenConfigFolder, null, this.OnOpenConfigFolderClick);
             ToolStripMenuItem openConfigFileItem = new ToolStripMenuItem(UiText.OpenConfigFile, null, this.OnOpenConfigFileClick);
+            this.toggleHoverWindowItem = new ToolStripMenuItem(UiText.ToggleHoverWindow, null, this.OnToggleHoverWindowClick);
+            ToolStripMenuItem resetHoverPositionItem = new ToolStripMenuItem("Reset Hover Window Position", null, this.OnResetHoverWindowPositionClick);
             ToolStripMenuItem refreshItem = new ToolStripMenuItem(UiText.Refresh, null, this.OnManualRefreshClick);
 
             // Refresh interval submenu
@@ -88,6 +92,8 @@ namespace ComingUpNextTray
             this.menu.Items.Add(new ToolStripSeparator());
             this.menu.Items.Add(openConfigFolderItem);
             this.menu.Items.Add(openConfigFileItem);
+            this.menu.Items.Add(this.toggleHoverWindowItem);
+            this.menu.Items.Add(resetHoverPositionItem);
             this.menu.Items.Add(refreshItem);
             this.menu.Items.Add(refreshIntervalRoot);
             this.menu.Items.Add(new ToolStripSeparator());
@@ -177,9 +183,47 @@ namespace ComingUpNextTray
                             this.alertStage = 1;
                         }
                     }
+
+                    // Keep hover window updated if visible and enabled
+                    if (this.toggleHoverWindowItem?.Checked == true && this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
+                    {
+                        string overlayTokenNow = this.app.GetOverlayText(now);
+                        this.hoverWindow.UpdateMeeting(meeting, now, overlayTokenNow);
+
+                        // update colors using central helper
+                        double? minutes2 = meeting is not null ? (meeting.StartTime - now).TotalMinutes : null;
+                        (Color bg2, Color fg2) = MeetingColorHelper.GetColors(state, minutes2);
+                        this.hoverWindow.SetColors(bg2, fg2);
+                    }
                 }
             };
             this.overlayTimer.Start();
+
+            // Show hover window at startup if enabled in config
+            if (this.app.GetShowHoverWindowForUi())
+            {
+                this.toggleHoverWindowItem!.Checked = true;
+                this.hoverWindow = new HoverWindow();
+                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now));
+
+                // Restore saved position if available, otherwise position near mouse
+                int? savedLeft = this.app.GetHoverWindowLeftForUi();
+                int? savedTop = this.app.GetHoverWindowTopForUi();
+                if (savedLeft.HasValue && savedTop.HasValue)
+                {
+                    this.hoverWindow.Location = new Point(savedLeft.Value, savedTop.Value);
+                }
+                else
+                {
+                    Point p = Cursor.Position;
+                    this.hoverWindow.Location = new Point(p.X + 16, p.Y - (this.hoverWindow.Height / 2));
+                }
+
+                // Persist position when moved
+                this.hoverWindow.Move += this.OnHoverWindowMoved;
+
+                this.hoverWindow.Show();
+            }
         }
 
         /// <inheritdoc />
@@ -196,7 +240,15 @@ namespace ComingUpNextTray
                 this.notifyIcon.Dispose();
                 this.nextMeetingDisplayItem.Dispose();
                 this.secondMeetingDisplayItem.Dispose();
+                this.toggleHoverWindowItem?.Dispose();
                 this.menu.Dispose();
+                if (this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
+                {
+                    this.hoverWindow.Move -= this.OnHoverWindowMoved;
+                    this.hoverWindow.Close();
+                    this.hoverWindow.Dispose();
+                }
+
                 this.app.Dispose();
                 this.refreshTimer.Stop();
                 this.refreshTimer.Dispose();
@@ -278,6 +330,20 @@ namespace ComingUpNextTray
                 this.notifyIcon.Text = tooltip.Length > 63 ? tooltip.Substring(0, 63) : tooltip; // NotifyIcon.Text limit
                 this.UpdateOverlayIcon(now);
                 this.UpdateMenuState();
+
+                // If hover window visible, update it immediately so users see refreshed info without waiting for overlay timer.
+                if (this.toggleHoverWindowItem?.Checked == true && this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
+                {
+                    DateTime nowLocal = DateTime.Now;
+                    CalendarEntry? meeting = this.app.GetNextMeetingForUi();
+                    string overlayTokenNow = this.app.GetOverlayText(nowLocal);
+                    this.hoverWindow.UpdateMeeting(meeting, nowLocal, overlayTokenNow);
+                    TrayApplication.IconState state = this.app.ComputeIconState(nowLocal);
+                    double? minutes2 = meeting is not null ? (meeting.StartTime - nowLocal).TotalMinutes : null;
+                    (Color bg2, Color fg2) = MeetingColorHelper.GetColors(state, minutes2);
+                    this.hoverWindow.SetColors(bg2, fg2);
+                }
+
                 if (!ok)
                 {
                     // Show a one-time balloon if calendar URL exists but fetch failed.
@@ -318,6 +384,11 @@ namespace ComingUpNextTray
             this.secondMeetingDisplayItem.Text = second is null ? string.Empty : NextMeetingSelector.FormatTooltip(second, DateTime.Now);
             this.secondMeetingDisplayItem.Visible = second is not null;
             string calendarUrl = this.app.GetCalendarUrlForUi();
+            if (this.toggleHoverWindowItem is not null)
+            {
+                this.toggleHoverWindowItem.Checked = this.app.GetShowHoverWindowForUi();
+            }
+
             foreach (ToolStripMenuItem item in this.menu.Items.OfType<ToolStripMenuItem>())
             {
                 switch (item.Text)
@@ -330,6 +401,114 @@ namespace ComingUpNextTray
                         break;
                 }
             }
+        }
+
+        private void OnToggleHoverWindowClick(object? sender, EventArgs e)
+        {
+            if (this.toggleHoverWindowItem is null)
+            {
+                return;
+            }
+
+            bool newVal = !this.toggleHoverWindowItem.Checked;
+            this.toggleHoverWindowItem.Checked = newVal;
+
+            // Persist setting
+            this.app.SetShowHoverWindow(newVal);
+
+            if (newVal)
+            {
+                // Show hover window immediately
+                if (this.hoverWindow is null || this.hoverWindow.IsDisposed)
+                {
+                    this.hoverWindow = new HoverWindow();
+                }
+
+                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now));
+
+                // choose colors consistent with overlay computation
+                Color bg = Color.Black;
+                Color fg = Color.White;
+                TrayApplication.IconState state = this.app.ComputeIconState(DateTime.Now);
+                if (state == TrayApplication.IconState.MinutesRemaining && this.app.GetNextMeetingForUi() is { } meeting)
+                {
+                    double minutes = (meeting.StartTime - DateTime.Now).TotalMinutes;
+                    if (minutes <= 5)
+                    {
+                        bg = Color.Red;
+                    }
+                    else if (minutes <= 15)
+                    {
+                        bg = Color.Gold;
+                        fg = Color.Black;
+                    }
+                    else
+                    {
+                        bg = Color.Green;
+                    }
+                }
+                else if (state == TrayApplication.IconState.Started)
+                {
+                    bg = Color.DarkRed;
+                }
+                else if (state == TrayApplication.IconState.DistantFuture)
+                {
+                    bg = Color.MediumBlue;
+                }
+                else if (state == TrayApplication.IconState.NoMeeting)
+                {
+                    bg = Color.DimGray;
+                }
+                else if (state == TrayApplication.IconState.NoCalendar)
+                {
+                    bg = Color.DarkGray;
+                }
+
+                this.hoverWindow.SetColors(bg, fg);
+
+                // Position near cursor as default
+                Point p = Cursor.Position;
+                this.hoverWindow.Location = new Point(p.X + 16, p.Y - (this.hoverWindow.Height / 2));
+                this.hoverWindow.Show();
+            }
+            else
+            {
+                if (this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
+                {
+                    this.hoverWindow.Move -= this.OnHoverWindowMoved;
+                    this.hoverWindow.Close();
+                    this.hoverWindow.Dispose();
+                    this.hoverWindow = null;
+                }
+            }
+        }
+
+        private void OnResetHoverWindowPositionClick(object? sender, EventArgs e)
+        {
+            // Clear persisted position and size
+            this.app.SetHoverWindowPosition(null, null);
+            this.app.SetHoverWindowSize(null, null);
+
+            // If hover window visible, move it to default near cursor and resize to default
+            if (this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
+            {
+                Point p = Cursor.Position;
+                this.hoverWindow.Location = new Point(p.X + 16, p.Y - (this.hoverWindow.Height / 2));
+
+                // reset size to default
+                this.hoverWindow.Size = new Size(220, this.hoverWindow.Height);
+            }
+        }
+
+        private void OnHoverWindowMoved(object? sender, EventArgs e)
+        {
+            if (this.hoverWindow is null || this.hoverWindow.IsDisposed)
+            {
+                return;
+            }
+
+            // Persist the top-left of the hover window
+            this.app.SetHoverWindowPosition(this.hoverWindow.Location.X, this.hoverWindow.Location.Y);
         }
 
         private void UpdateOverlayIcon(DateTime now)
@@ -348,44 +527,10 @@ namespace ComingUpNextTray
                 {
                     g.Clear(Color.Transparent);
 
-                    // Determine background color purely by time thresholds.
-                    Color bgColor;
-                    if (state == TrayApplication.IconState.MinutesRemaining && this.app.GetNextMeetingForUi() is { } meeting)
-                    {
-                        double minutes = (meeting.StartTime - now).TotalMinutes;
-                        if (minutes <= 5)
-                        {
-                            bgColor = Color.Red;
-                        }
-                        else if (minutes <= 15)
-                        {
-                            bgColor = Color.Gold;
-                        }
-                        else
-                        {
-                            bgColor = Color.Green;
-                        }
-                    }
-                    else if (state == TrayApplication.IconState.Started)
-                    {
-                        bgColor = Color.DarkRed;
-                    }
-                    else if (state == TrayApplication.IconState.DistantFuture)
-                    {
-                        bgColor = Color.MediumBlue;
-                    }
-                    else if (state == TrayApplication.IconState.NoMeeting)
-                    {
-                        bgColor = Color.DimGray;
-                    }
-                    else if (state == TrayApplication.IconState.NoCalendar)
-                    {
-                        bgColor = Color.DarkGray;
-                    }
-                    else
-                    {
-                        bgColor = Color.Black;
-                    }
+                    // Determine background/foreground colors using centralized helper.
+                    CalendarEntry? meetingForColor = this.app.GetNextMeetingForUi();
+                    double? minutesForColor = meetingForColor is not null ? (meetingForColor.StartTime - now).TotalMinutes : null;
+                    (Color bgColor, Color fgColor) = MeetingColorHelper.GetColors(state, minutesForColor);
 
                     // Full solid background.
                     using Brush bgBrush = new SolidBrush(bgColor);
@@ -410,7 +555,6 @@ namespace ComingUpNextTray
                     {
                         SizeF size = g.MeasureString(overlay, chosen);
                         PointF pt = new PointF((bmp.Width - size.Width) / 2f, (bmp.Height - size.Height) / 2f);
-                        Color fgColor = bgColor == Color.Gold ? Color.Black : Color.White;
                         using Brush fg = new SolidBrush(fgColor);
                         g.DrawString(overlay, chosen, fg, pt);
                     }

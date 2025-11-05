@@ -21,6 +21,11 @@ namespace ComingUpNextTray
         private bool _disposed;
         private DateTime _lastRefreshUtc;
         private int _refreshMinutes = 5;
+        private bool _showHoverWindow = true;
+        private int? _hoverWindowLeft;
+        private int? _hoverWindowTop;
+        private int? _hoverWindowWidth;
+        private int? _hoverWindowHeight;
 
         // Overlay is now always enabled; legacy flag retained only for backward compatible config file reads.
 
@@ -289,6 +294,60 @@ namespace ComingUpNextTray
             this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes });
         }
 
+        /// <summary>Gets whether to show the hover window.</summary>
+        /// <returns>True if hover window should be shown.</returns>
+        internal bool GetShowHoverWindowForUi() => this._showHoverWindow;
+
+        /// <summary>Sets whether to show the hover window and persists config.</summary>
+        /// <param name="v">New show hover window value.</param>
+        internal void SetShowHoverWindow(bool v)
+        {
+            this._showHoverWindow = v;
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow });
+        }
+
+        /// <summary>
+        /// Gets saved hover window left coordinate.
+        /// </summary>
+        /// <returns>Left coordinate in screen pixels, or null if not set.</returns>
+        internal int? GetHoverWindowLeftForUi() => this._hoverWindowLeft;
+
+        /// <summary>
+        /// Gets saved hover window top coordinate.
+        /// </summary>
+        /// <returns>Top coordinate in screen pixels, or null if not set.</returns>
+        internal int? GetHoverWindowTopForUi() => this._hoverWindowTop;
+
+        /// <summary>Gets saved hover window width in pixels.</summary>
+        /// <returns>Width in pixels or null.</returns>
+        internal int? GetHoverWindowWidthForUi() => this._hoverWindowWidth;
+
+        /// <summary>Gets saved hover window height in pixels.</summary>
+        /// <returns>Height in pixels or null.</returns>
+        internal int? GetHoverWindowHeightForUi() => this._hoverWindowHeight;
+
+        /// <summary>
+        /// Sets hover window position and persists config.
+        /// </summary>
+        /// <param name="left">Left coordinate in screen pixels, or null to clear.</param>
+        /// <param name="top">Top coordinate in screen pixels, or null to clear.</param>
+        internal void SetHoverWindowPosition(int? left, int? top)
+        {
+            this._hoverWindowLeft = left;
+            this._hoverWindowTop = top;
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+        }
+
+        /// <summary>Sets hover window size and persists config.</summary>
+        /// <param name="width">Width in pixels, or null to clear.</param>
+        /// <param name="height">Height in pixels, or null to clear.</param>
+        internal void SetHoverWindowSize(int? width, int? height)
+        {
+            this._hoverWindowWidth = width;
+            this._hoverWindowHeight = height;
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+        }
+
         /// <summary>
         /// Persists configuration to disk, updating the active calendar URL and refresh interval.
         /// </summary>
@@ -347,6 +406,31 @@ namespace ComingUpNextTray
                     if (cfg.RefreshMinutes is int rm && rm > 0 && rm < 1440)
                     {
                         this._refreshMinutes = rm;
+                    }
+
+                    if (cfg.ShowHoverWindow is bool sh)
+                    {
+                        this._showHoverWindow = sh;
+                    }
+
+                    if (cfg.HoverWindowLeft is int hl)
+                    {
+                        this._hoverWindowLeft = hl;
+                    }
+
+                    if (cfg.HoverWindowTop is int ht)
+                    {
+                        this._hoverWindowTop = ht;
+                    }
+
+                    if (cfg.HoverWindowWidth is int ww)
+                    {
+                        this._hoverWindowWidth = ww;
+                    }
+
+                    if (cfg.HoverWindowHeight is int wh)
+                    {
+                        this._hoverWindowHeight = wh;
                     }
                 }
             }

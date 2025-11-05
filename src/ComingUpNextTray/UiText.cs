@@ -38,8 +38,8 @@ namespace ComingUpNextTray
         /// <summary>Context menu item to open the configuration JSON file.</summary>
         internal const string OpenConfigFile = "Open Config File";
 
-        /// <summary>Context menu item to toggle the icon overlay.</summary>
-        internal const string ToggleOverlay = "Show Overlay";
+        /// <summary>Context menu item to toggle the hover window.</summary>
+        internal const string ToggleHoverWindow = "Show Hover Window";
 
         /// <summary>About dialog/menu item.</summary>
         internal const string About = "About";
