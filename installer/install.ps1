@@ -1,6 +1,5 @@
 param(
   [Parameter(Mandatory=$true)][string]$MsiPath,
-  [switch]$VerboseUninstall,
   [switch]$SkipProcessKill
 )
 
@@ -44,8 +43,8 @@ if ($productCode) {
     Write-Host 'SkipProcessKill set: not terminating existing processes.'
   }
 
-  $uninstallLog = Join-Path ([IO.Path]::GetDirectoryName($MsiPath)) ('uninstall-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log')
-  $uninstallParams = @('/x', $productCode, '/qn', '/l*v', $uninstallLog)
+  # Do not create uninstall log files. Run msiexec without verbose logging to avoid temporary log files.
+  $uninstallParams = @('/x', $productCode, '/qn')
   Write-Host "Using product code for uninstall: $productCode"
   Write-Host "Running: msiexec.exe $($uninstallParams -join ' ')"
   $proc = Start-Process msiexec.exe -Wait -PassThru -ArgumentList $uninstallParams
@@ -53,17 +52,7 @@ if ($productCode) {
     if ($proc.ExitCode -eq 1603) {
       Write-Warning 'Uninstall returned 1603. Continuing with install (old per-machine install may require manual removal or elevation).'
     } else {
-      Write-Error "Uninstall failed with exit code $($proc.ExitCode)"
-      if (Test-Path $uninstallLog) {
-        Write-Host "Uninstall log saved: $uninstallLog"
-        try {
-          $errorLines = Get-Content -Path $uninstallLog -ErrorAction SilentlyContinue | Select-String -Pattern 'Error ' -First 5
-          if ($errorLines) {
-            Write-Host 'First error lines:'
-            $errorLines | ForEach-Object { Write-Host $_.ToString() }
-          }
-        } catch { Write-Warning "Failed to parse uninstall log: $($_.Exception.Message)" }
-      }
+      Write-Error "Uninstall failed with exit code $($proc.ExitCode). No uninstall log is created by this script. To capture detailed MSI logs, run the uninstall manually with msiexec /l*v <path>"
       exit $proc.ExitCode
     }
   } else {
