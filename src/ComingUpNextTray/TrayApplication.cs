@@ -227,19 +227,54 @@ namespace ComingUpNextTray
         /// Gets the short overlay text to draw on the tray icon representing minutes or status.
         /// </summary>
         /// <param name="now">Reference timestamp.</param>
+        /// <param name="includeUnit">If true, append a human-friendly unit to plain minute tokens (e.g. "5" -> "5 min").</param>
         /// <returns>Overlay text token.</returns>
-        internal string GetOverlayText(DateTime now)
+        internal string GetOverlayText(DateTime now, bool includeUnit = false)
         {
             IconState state = this.ComputeIconState(now);
-            return state switch
+            bool tokenIsPlainMinutes = false;
+            string token;
+
+            switch (state)
             {
-                IconState.NoCalendar => "?",
-                IconState.NoMeeting => "-",
-                IconState.DistantFuture => UiText.InfiniteSymbol,
-                IconState.Started => UiText.ZeroMinutes,
-                IconState.MinutesRemaining => this._nextMeeting is null ? UiText.ZeroMinutes : FormatMinutesForIcon((int)Math.Ceiling((this._nextMeeting.StartTime - now).TotalMinutes)),
-                _ => UiText.ZeroMinutes,
-            };
+                case IconState.NoCalendar:
+                    token = "?";
+                    break;
+                case IconState.NoMeeting:
+                    token = "-";
+                    break;
+                case IconState.DistantFuture:
+                    token = UiText.InfiniteSymbol;
+                    break;
+                case IconState.Started:
+                    token = UiText.ZeroMinutes;
+                    break;
+                case IconState.MinutesRemaining:
+                    if (this._nextMeeting is null)
+                    {
+                        token = UiText.ZeroMinutes;
+                    }
+                    else
+                    {
+                        int minutes = (int)Math.Ceiling((this._nextMeeting.StartTime - now).TotalMinutes);
+                        token = FormatMinutesForIcon(minutes);
+
+                        // If FormatMinutesForIcon chose a plain minute value (1-59) then includeUnit should append " min".
+                        tokenIsPlainMinutes = minutes > 0 && minutes < 60;
+                    }
+
+                    break;
+                default:
+                    token = UiText.ZeroMinutes;
+                    break;
+            }
+
+            if (includeUnit && tokenIsPlainMinutes)
+            {
+                return token + " min";
+            }
+
+            return token;
         }
 
         /// <summary>Gets the configuration file path for test assertions.</summary>

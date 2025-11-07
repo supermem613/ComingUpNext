@@ -67,8 +67,8 @@ namespace ComingUpNextTray
         /// </summary>
         /// <param name="meeting">Next meeting or null.</param>
         /// <param name="now">Reference time for formatting.</param>
-    /// <param name="overlayToken">Optional overlay token (e.g. "5" or "1h") to display after the title as "(In X)".</param>
-    /// <param name="fetchError">Optional fetch error message to display instead of meeting information.</param>
+        /// <param name="overlayToken">Optional overlay token (e.g. "5" or "1h" or "5 min") to display after the title as "(In X)".</param>
+        /// <param name="fetchError">Optional fetch error message to display instead of meeting information.</param>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1303:Do not pass literals as localized parameters", Justification = "Using centralized UiText constants; localization pending.")]
         public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null)
         {
@@ -90,7 +90,7 @@ namespace ComingUpNextTray
                 this.currentMeeting = meeting;
                 string title = meeting.Title ?? "Untitled";
 
-                // Only append "(In X)" for meaningful overlay tokens (numbers or hour tokens).
+                // Only append "(In X)" for meaningful overlay tokens.
                 // Suppress for non-minute symbols like '?', '-' or the infinity symbol.
                 if (!string.IsNullOrEmpty(overlayToken)
                     && overlayToken != UiText.InfiniteSymbol

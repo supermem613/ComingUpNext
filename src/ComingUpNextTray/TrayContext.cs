@@ -187,7 +187,7 @@ namespace ComingUpNextTray
                     // Keep hover window updated if visible and enabled
                     if (this.toggleHoverWindowItem?.Checked == true && this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
                     {
-                        string overlayTokenNow = this.app.GetOverlayText(now);
+                        string overlayTokenNow = this.app.GetOverlayText(now, includeUnit: true);
 
                         // Provide last fetch error if present so hover can prefer showing it.
                         string? fetchErr = this.app.GetLastFetchErrorForUi();
@@ -207,7 +207,7 @@ namespace ComingUpNextTray
             {
                 this.toggleHoverWindowItem!.Checked = true;
                 this.hoverWindow = new HoverWindow();
-                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now), this.app.GetLastFetchErrorForUi());
+                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now, includeUnit: true), this.app.GetLastFetchErrorForUi());
 
                 // Restore saved position if available, otherwise position near mouse
                 int? savedLeft = this.app.GetHoverWindowLeftForUi();
@@ -339,7 +339,7 @@ namespace ComingUpNextTray
                 {
                     DateTime nowLocal = DateTime.Now;
                     CalendarEntry? meeting = this.app.GetNextMeetingForUi();
-                    string overlayTokenNow = this.app.GetOverlayText(nowLocal);
+                    string overlayTokenNow = this.app.GetOverlayText(nowLocal, includeUnit: true);
                     this.hoverWindow.UpdateMeeting(meeting, nowLocal, overlayTokenNow, this.app.GetLastFetchErrorForUi());
                     TrayApplication.IconState state = this.app.ComputeIconState(nowLocal);
                     double? minutes2 = meeting is not null ? (meeting.StartTime - nowLocal).TotalMinutes : null;
