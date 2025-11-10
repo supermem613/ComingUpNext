@@ -8,6 +8,25 @@ namespace ComingUpNextTray
     using ComingUpNextTray.Services;
 
     /// <summary>
+    /// Notification alert stages used by `TrayContext` to track which alerts have been shown.
+    /// Kept at namespace level to avoid nested-type ordering/style rules.
+    /// </summary>
+    internal enum AlertStage
+    {
+        /// <summary>No alerts have been shown yet.</summary>
+        None = 0,
+
+        /// <summary>The 15-minute alert has been shown.</summary>
+        FifteenMinutesShown = 1,
+
+        /// <summary>The 5-minute alert has been shown.</summary>
+        FiveMinutesShown = 2,
+
+        /// <summary>The immediate/now alert has been shown.</summary>
+        NowShown = 3,
+    }
+
+    /// <summary>
     /// WinForms <see cref="ApplicationContext"/> hosting the lifetime of the tray icon
     /// and underlying <see cref="TrayApplication"/> logic. Disposing the context exits the app.
     /// </summary>
@@ -20,7 +39,7 @@ namespace ComingUpNextTray
         private readonly ToolStripMenuItem secondMeetingDisplayItem; // shows formatted second meeting
         private readonly ToolStripMenuItem lastUpdatedDisplayItem; // shows last successful refresh timestamp
         private readonly System.Windows.Forms.Timer refreshTimer;
-        private readonly System.Windows.Forms.Timer overlayTimer; // updates icon/tooltip more frequently
+        private readonly System.Windows.Forms.Timer overlayTimer; // updates icon/tooltip & notifications every minute (offline)
         private ToolStripMenuItem? toggleHoverWindowItem;
         private ToolStripMenuItem? toggleIgnoreFreeFollowingItem;
         private HoverWindow? hoverWindow;
@@ -28,10 +47,10 @@ namespace ComingUpNextTray
         private Icon? baseIcon;
         private bool refreshInProgress;
         private IntPtr lastOverlayIconHandle = IntPtr.Zero;
-        private int alertStage; // 0 none, 1 fifteen-minute alert shown, 2 five-minute alert shown
+        private AlertStage alertStage; // which alerts have been shown for the current meeting
         private CalendarEntry? lastAlertMeeting; // track meeting for which alerts were issued
 
-        /// <summary>
+    /// <summary>
         /// Initializes a new instance of the <see cref="TrayContext"/> class.
         /// Creates the NotifyIcon, context menu, and backing application logic.
         /// </summary>
@@ -148,10 +167,9 @@ namespace ComingUpNextTray
             _ = this.RefreshAndUpdateUiAsync();
             this.refreshTimer.Start();
 
-            // Setup overlay update timer to refresh countdown visuals every 15 seconds.
             this.overlayTimer = new System.Windows.Forms.Timer
             {
-                Interval = 15_000,
+                Interval = 60_000,
             };
             this.overlayTimer.Tick += (s, e) =>
             {
@@ -171,22 +189,18 @@ namespace ComingUpNextTray
                     if (meeting != null && meeting != this.lastAlertMeeting)
                     {
                         // New meeting; reset alert stage.
-                        this.alertStage = 0;
+                        this.alertStage = AlertStage.None;
                         this.lastAlertMeeting = meeting;
                     }
 
                     if (state == TrayApplication.IconState.MinutesRemaining && meeting is not null)
                     {
                         double minutes = (meeting.StartTime - now).TotalMinutes;
-                        if (minutes <= 5 && this.alertStage < 2)
+                        (AlertStage newStage, string? message) = NotificationHelper.DetermineAlertAction(minutes, this.alertStage);
+                        if (message is not null)
                         {
-                            this.ShowBalloon(UiText.MeetingVerySoonBalloon);
-                            this.alertStage = 2;
-                        }
-                        else if (minutes <= 15 && this.alertStage < 1)
-                        {
-                            this.ShowBalloon(UiText.MeetingSoonBalloon);
-                            this.alertStage = 1;
+                            this.ShowBalloon(message);
+                            this.alertStage = newStage;
                         }
                     }
 
@@ -410,7 +424,7 @@ namespace ComingUpNextTray
             if (lastUtc != default)
             {
                 DateTime local = lastUtc.ToLocalTime();
-                this.lastUpdatedDisplayItem.Text = $"Updated {local:MM/dd ddd h:mm tt}";
+                this.lastUpdatedDisplayItem.Text = $"Updated: {local:MM/dd ddd h:mm tt}";
                 this.lastUpdatedDisplayItem.Visible = true;
             }
             else

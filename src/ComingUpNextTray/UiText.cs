@@ -92,6 +92,9 @@ namespace ComingUpNextTray
         /// <summary>Balloon tip message when meeting starts within 5 minutes.</summary>
         internal const string MeetingVerySoonBalloon = "Meeting starts within 5 minutes.";
 
+        /// <summary>Balloon tip message when the meeting is starting now (zero minutes remaining).</summary>
+        internal const string MeetingNowBalloon = "Meeting starting now.";
+
         /// <summary>Text shown when there are no upcoming meetings at all.</summary>
         internal const string NoUpcomingMeetings = "No upcoming meetings";
 
