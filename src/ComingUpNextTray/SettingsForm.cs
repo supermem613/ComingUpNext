@@ -31,6 +31,14 @@ namespace ComingUpNextTray
             try
             {
                 this.checkShowHoverWindow.Checked = this.app.GetShowHoverWindowForUi();
+                try
+                {
+                    this.checkIgnoreFreeOrFollowing.Checked = this.app.GetIgnoreFreeOrFollowingForUi();
+                }
+                catch (System.InvalidOperationException)
+                {
+                    // ignore if app not fully initialized
+                }
             }
             catch (System.InvalidOperationException)
             {
@@ -54,6 +62,9 @@ namespace ComingUpNextTray
 
             // Persist hover window enabled state
             this.app.SetShowHoverWindow(this.checkShowHoverWindow.Checked);
+
+            // Persist ignore free/following state
+            this.app.SetIgnoreFreeOrFollowing(this.checkIgnoreFreeOrFollowing.Checked);
             this.DialogResult = DialogResult.OK;
             this.Close();
         }

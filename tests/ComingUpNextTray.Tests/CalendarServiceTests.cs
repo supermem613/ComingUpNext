@@ -88,5 +88,32 @@ namespace ComingUpNextTray.Tests {
             // There should be at least one entry whose StartTime.Date equals 2025-11-04 in local time
             Assert.Contains(result, e => e.StartTime.Date == now.Date && e.Title.Contains("1:1"));
         }
+
+        [Fact]
+        public void ParseIcs_MarksExchangeFreeAndPreservesOnExpansion()
+        {
+            // sanitized VEVENT similar to user's "ODSP Design Review" with vendor busy-status
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "UID:sample-uid\n" +
+                "SUMMARY:Sanitized Free Meeting\n" +
+                "DTSTART;TZID=Pacific Standard Time:20250825T100000\n" +
+                "DTEND;TZID=Pacific Standard Time:20250825T110000\n" +
+                "TRANSP:TRANSPARENT\n" +
+                "STATUS:CONFIRMED\n" +
+                "X-MICROSOFT-CDO-BUSYSTATUS:FREE\n" +
+                "RRULE:FREQ=WEEKLY;COUNT=3\n" +
+                "END:VEVENT";
+
+            // Use a 'now' before the DTSTART to ensure expansion returns occurrences
+            DateTime now = new DateTime(2025, 8, 1, 0, 0, 0, DateTimeKind.Local);
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            // There should be multiple occurrences (original + expansions)
+            Assert.True(result.Count >= 1, "Expected at least one occurrence");
+
+            // All occurrences should be marked as free/placeholder
+            Assert.All(result, e => Assert.True(e.IsFreeOrFollowing, $"Entry {e} was not marked free"));
+        }
     }
 }

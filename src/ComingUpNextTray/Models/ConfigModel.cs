@@ -14,6 +14,9 @@ namespace ComingUpNextTray.Models
         /// <summary>Gets or sets the refresh interval in minutes.</summary>
         public int? RefreshMinutes { get; set; }
 
+        /// <summary>Gets or sets a value indicating whether free or "following" meetings should be ignored.</summary>
+        public bool? IgnoreFreeOrFollowing { get; set; } = true;
+
         /// <summary>Gets or sets the config schema version.</summary>
         public int Version { get; set; } = CurrentVersion;
 

@@ -5,9 +5,6 @@ namespace ComingUpNextTray
     /// </summary>
     internal static class UiText
     {
-        /// <summary>Tray icon base application text.</summary>
-        internal const string AppTrayText = "ComingUpNext";
-
         /// <summary>Application title displayed in tray icon tooltip or UI.</summary>
         internal const string ApplicationTitle = "Coming Up Next";
 
@@ -40,6 +37,9 @@ namespace ComingUpNextTray
 
         /// <summary>Context menu item to toggle the hover window.</summary>
         internal const string ToggleHoverWindow = "Show Hover Window";
+
+        /// <summary>Context menu item to toggle ignoring free/following meetings.</summary>
+        internal const string ToggleIgnoreFreeOrFollowing = "Ignore Free/Following";
 
         /// <summary>About dialog/menu item.</summary>
         internal const string About = "About";
@@ -82,9 +82,6 @@ namespace ComingUpNextTray
 
         /// <summary>Ellipsis text constant.</summary>
         internal const string Ellipsis = "...";
-
-        /// <summary>Literal empty JSON object used for default config file creation.</summary>
-        internal const string EmptyJsonObject = "{}";
 
         /// <summary>Suffix appended to invalid config file rename.</summary>
         internal const string InvalidSuffix = ".invalid";

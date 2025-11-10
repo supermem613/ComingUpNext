@@ -10,6 +10,7 @@ partial class SettingsForm
     private System.Windows.Forms.Label labelCalendarUrl;
     private System.Windows.Forms.TextBox textCalendarUrl;
     private System.Windows.Forms.CheckBox checkShowHoverWindow;
+    private System.Windows.Forms.CheckBox checkIgnoreFreeOrFollowing;
     private System.Windows.Forms.Button buttonSave;
     private System.Windows.Forms.Button buttonCancel;
 
@@ -39,7 +40,7 @@ partial class SettingsForm
         this.textCalendarUrl = new System.Windows.Forms.TextBox();
         this.buttonSave = new System.Windows.Forms.Button();
         this.buttonCancel = new System.Windows.Forms.Button();
-    this.SuspendLayout();
+        this.SuspendLayout();
         // 
         // labelCalendarUrl
         // 
@@ -57,22 +58,33 @@ partial class SettingsForm
         this.textCalendarUrl.Name = "textCalendarUrl";
         this.textCalendarUrl.Size = new System.Drawing.Size(470, 23);
         this.textCalendarUrl.TabIndex = 1;
-    // 
-    // checkShowHoverWindow
-    // 
-    this.checkShowHoverWindow = new System.Windows.Forms.CheckBox();
-    this.checkShowHoverWindow.AutoSize = true;
-    this.checkShowHoverWindow.Location = new System.Drawing.Point(15, 64);
-    this.checkShowHoverWindow.Name = "checkShowHoverWindow";
-    this.checkShowHoverWindow.Size = new System.Drawing.Size(150, 19);
-    this.checkShowHoverWindow.TabIndex = 4;
-    this.checkShowHoverWindow.Text = UiText.ToggleHoverWindow;
-    this.checkShowHoverWindow.UseVisualStyleBackColor = true;
+        // 
+        // checkShowHoverWindow
+        // 
+        this.checkShowHoverWindow = new System.Windows.Forms.CheckBox();
+        this.checkShowHoverWindow.AutoSize = true;
+        this.checkShowHoverWindow.Location = new System.Drawing.Point(15, 64);
+        this.checkShowHoverWindow.Name = "checkShowHoverWindow";
+        this.checkShowHoverWindow.Size = new System.Drawing.Size(150, 19);
+        this.checkShowHoverWindow.TabIndex = 4;
+        this.checkShowHoverWindow.Text = UiText.ToggleHoverWindow;
+        this.checkShowHoverWindow.UseVisualStyleBackColor = true;
+        // 
+        // checkIgnoreFreeOrFollowing
+        // 
+        this.checkIgnoreFreeOrFollowing = new System.Windows.Forms.CheckBox();
+        this.checkIgnoreFreeOrFollowing.AutoSize = true;
+        this.checkIgnoreFreeOrFollowing.Location = new System.Drawing.Point(15, 90);
+        this.checkIgnoreFreeOrFollowing.Name = "checkIgnoreFreeOrFollowing";
+        this.checkIgnoreFreeOrFollowing.Size = new System.Drawing.Size(260, 19);
+        this.checkIgnoreFreeOrFollowing.TabIndex = 5;
+        this.checkIgnoreFreeOrFollowing.Text = "Ignore meetings marked as Free or Following";
+        this.checkIgnoreFreeOrFollowing.UseVisualStyleBackColor = true;
         // 
         // buttonSave
         // 
-    this.buttonSave.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
-        this.buttonSave.Location = new System.Drawing.Point(329, 80);
+        this.buttonSave.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
+        this.buttonSave.Location = new System.Drawing.Point(329, 120);
         this.buttonSave.Name = "buttonSave";
         this.buttonSave.Size = new System.Drawing.Size(75, 25);
         this.buttonSave.TabIndex = 2;
@@ -82,8 +94,8 @@ partial class SettingsForm
         // 
         // buttonCancel
         // 
-    this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
-        this.buttonCancel.Location = new System.Drawing.Point(410, 80);
+        this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
+        this.buttonCancel.Location = new System.Drawing.Point(410, 120);
         this.buttonCancel.Name = "buttonCancel";
         this.buttonCancel.Size = new System.Drawing.Size(75, 25);
         this.buttonCancel.TabIndex = 3;
@@ -94,12 +106,13 @@ partial class SettingsForm
         // SettingsForm
         // 
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-    this.ClientSize = new System.Drawing.Size(500, 140);
-    this.Controls.Add(this.buttonCancel);
-    this.Controls.Add(this.buttonSave);
-    this.Controls.Add(this.checkShowHoverWindow);
-    this.Controls.Add(this.textCalendarUrl);
-    this.Controls.Add(this.labelCalendarUrl);
+        this.ClientSize = new System.Drawing.Size(500, 180);
+        this.Controls.Add(this.buttonCancel);
+        this.Controls.Add(this.buttonSave);
+        this.Controls.Add(this.checkIgnoreFreeOrFollowing);
+        this.Controls.Add(this.checkShowHoverWindow);
+        this.Controls.Add(this.textCalendarUrl);
+        this.Controls.Add(this.labelCalendarUrl);
         this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
         this.MinimizeBox = false;

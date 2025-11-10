@@ -9,15 +9,22 @@ namespace ComingUpNextTray.Services
     internal static class NextMeetingSelector
     {
         /// <summary>
-        /// Determines the next meeting starting at or after <paramref name="now"/>.
+        /// Determines the next meeting starting at or after <paramref name="now"/>, optionally ignoring free/following entries.
         /// </summary>
         /// <param name="entries">Collection of calendar entries.</param>
         /// <param name="now">The reference point in time.</param>
+        /// <param name="ignoreFreeOrFollowing">If true, entries whose title indicates free or following will be skipped.</param>
         /// <returns>The next meeting or <c>null</c> if none.</returns>
-        internal static CalendarEntry? GetNextMeeting(IEnumerable<CalendarEntry> entries, DateTime now)
+        internal static CalendarEntry? GetNextMeeting(IEnumerable<CalendarEntry> entries, DateTime now, bool ignoreFreeOrFollowing = true)
         {
-            return entries
-                .Where(e => e.StartTime >= now)
+            IEnumerable<CalendarEntry> query = entries.Where(e => e.StartTime >= now);
+
+            if (ignoreFreeOrFollowing)
+            {
+                query = query.Where(e => !IsFreeOrFollowing(e));
+            }
+
+            return query
                 .OrderBy(e => e.StartTime)
                 .FirstOrDefault();
         }
@@ -40,6 +47,35 @@ namespace ComingUpNextTray.Services
             string timeFormat = next.StartTime.Date == now.Date ? "h:mm tt" : "ddd h:mm tt";
             string absoluteTime = next.StartTime.ToString(timeFormat, culture);
             return $"Next: {next.Title} ({absoluteTime})";
+        }
+
+        private static bool IsFreeOrFollowing(CalendarEntry e)
+        {
+            // If parsing already marked the entry, trust it.
+            if (e.IsFreeOrFollowing)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(e.Title))
+            {
+                return false;
+            }
+
+            string t = e.Title.Trim();
+
+            // Fallback heuristics: exact "Free" or containing the word "following".
+            if (string.Equals(t, "Free", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (t.Contains("following", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }

@@ -233,6 +233,49 @@ namespace ComingUpNextTray.Services
                     {
                         case "SUMMARY":
                             current.Title = value;
+
+                            // Mark simple summary markers
+                            if (!string.IsNullOrWhiteSpace(value))
+                            {
+                                string sv = value.Trim();
+                                if (string.Equals(sv, "Free", StringComparison.OrdinalIgnoreCase) || sv.Contains("following", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    current.IsFreeOrFollowing = true;
+                                }
+                            }
+
+                            break;
+                        case "TRANSP":
+                            // TRANSP:TRANSPARENT often indicates free time
+                            if (string.Equals(value, "TRANSPARENT", StringComparison.OrdinalIgnoreCase))
+                            {
+                                current.IsFreeOrFollowing = true;
+                            }
+
+                            break;
+                        case "STATUS":
+                            // Some calendars use STATUS:FREE
+                            if (string.Equals(value, "FREE", StringComparison.OrdinalIgnoreCase))
+                            {
+                                current.IsFreeOrFollowing = true;
+                            }
+
+                            break;
+                        case "BUSYSTATUS":
+                            // Exchange/Outlook may emit BUSYSTATUS or X-MICROSOFT-CDO-BUSYSTATUS with values like FREE, BUSY, TENTATIVE
+                            if (string.Equals(value, "FREE", StringComparison.OrdinalIgnoreCase))
+                            {
+                                current.IsFreeOrFollowing = true;
+                            }
+
+                            break;
+                        case "X-MICROSOFT-CDO-BUSYSTATUS":
+                            // Some feeds use the vendor-prefixed property. Treat FREE as placeholder/free time.
+                            if (string.Equals(value, "FREE", StringComparison.OrdinalIgnoreCase))
+                            {
+                                current.IsFreeOrFollowing = true;
+                            }
+
                             break;
                         case "DTSTART":
                             DateTime start = ParseDate(value, tzid);
@@ -624,6 +667,7 @@ namespace ComingUpNextTray.Services
                         StartTime = candidate,
                         EndTime = candidate + (prototype.EndTime - prototype.StartTime),
                         MeetingUrl = prototype.MeetingUrl,
+                        IsFreeOrFollowing = prototype.IsFreeOrFollowing,
                     };
                 }
 

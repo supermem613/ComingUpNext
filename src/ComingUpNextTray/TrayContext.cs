@@ -21,6 +21,7 @@ namespace ComingUpNextTray
         private readonly System.Windows.Forms.Timer refreshTimer;
         private readonly System.Windows.Forms.Timer overlayTimer; // updates icon/tooltip more frequently
         private ToolStripMenuItem? toggleHoverWindowItem;
+        private ToolStripMenuItem? toggleIgnoreFreeFollowingItem;
         private HoverWindow? hoverWindow;
         private bool disposed;
         private Icon? baseIcon;
@@ -54,6 +55,7 @@ namespace ComingUpNextTray
             ToolStripMenuItem openConfigFolderItem = new ToolStripMenuItem(UiText.OpenConfigFolder, null, this.OnOpenConfigFolderClick);
             ToolStripMenuItem openConfigFileItem = new ToolStripMenuItem(UiText.OpenConfigFile, null, this.OnOpenConfigFileClick);
             this.toggleHoverWindowItem = new ToolStripMenuItem(UiText.ToggleHoverWindow, null, this.OnToggleHoverWindowClick);
+            this.toggleIgnoreFreeFollowingItem = new ToolStripMenuItem(UiText.ToggleIgnoreFreeOrFollowing, null, this.OnToggleIgnoreFreeFollowingClick);
             ToolStripMenuItem resetHoverPositionItem = new ToolStripMenuItem("Reset Hover Window Position", null, this.OnResetHoverWindowPositionClick);
             ToolStripMenuItem refreshItem = new ToolStripMenuItem(UiText.Refresh, null, this.OnManualRefreshClick);
 
@@ -93,6 +95,7 @@ namespace ComingUpNextTray
             this.menu.Items.Add(openConfigFolderItem);
             this.menu.Items.Add(openConfigFileItem);
             this.menu.Items.Add(this.toggleHoverWindowItem);
+            this.menu.Items.Add(this.toggleIgnoreFreeFollowingItem);
             this.menu.Items.Add(resetHoverPositionItem);
             this.menu.Items.Add(refreshItem);
             this.menu.Items.Add(refreshIntervalRoot);
@@ -244,6 +247,7 @@ namespace ComingUpNextTray
                 this.nextMeetingDisplayItem.Dispose();
                 this.secondMeetingDisplayItem.Dispose();
                 this.toggleHoverWindowItem?.Dispose();
+                this.toggleIgnoreFreeFollowingItem?.Dispose();
                 this.menu.Dispose();
                 if (this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
                 {
@@ -402,6 +406,11 @@ namespace ComingUpNextTray
                 this.toggleHoverWindowItem.Checked = this.app.GetShowHoverWindowForUi();
             }
 
+            if (this.toggleIgnoreFreeFollowingItem is not null)
+            {
+                this.toggleIgnoreFreeFollowingItem.Checked = this.app.GetIgnoreFreeOrFollowingForUi();
+            }
+
             foreach (ToolStripMenuItem item in this.menu.Items.OfType<ToolStripMenuItem>())
             {
                 switch (item.Text)
@@ -414,6 +423,23 @@ namespace ComingUpNextTray
                         break;
                 }
             }
+        }
+
+        private void OnToggleIgnoreFreeFollowingClick(object? sender, EventArgs e)
+        {
+            if (this.toggleIgnoreFreeFollowingItem is null)
+            {
+                return;
+            }
+
+            bool newVal = !this.toggleIgnoreFreeFollowingItem.Checked;
+            this.toggleIgnoreFreeFollowingItem.Checked = newVal;
+
+            // Persist setting
+            this.app.SetIgnoreFreeOrFollowing(newVal);
+
+            // Refresh display to reflect possible changed next/second meeting
+            _ = this.RefreshAndUpdateUiAsync();
         }
 
         private void OnToggleHoverWindowClick(object? sender, EventArgs e)

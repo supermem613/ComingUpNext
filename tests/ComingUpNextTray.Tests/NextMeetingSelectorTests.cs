@@ -92,5 +92,37 @@ namespace ComingUpNextTray.Tests {
             string val = ComingUpNextTray.Program.FormatMinutesForIconForTest(2000);
             Assert.NotEqual("∞", val);
         }
+
+        [Fact]
+        public void GetNextMeeting_IgnoresFreeOrFollowing_ByDefault()
+        {
+            DateTime now = DateTime.Now;
+            CalendarEntry[] meetings = new[]
+            {
+                new CalendarEntry { Title = "Free", StartTime = now.AddMinutes(5), EndTime = now.AddMinutes(35) },
+                new CalendarEntry { Title = "Following up", StartTime = now.AddMinutes(10), EndTime = now.AddMinutes(40) },
+                new CalendarEntry { Title = "Real Meeting", StartTime = now.AddMinutes(15), EndTime = now.AddMinutes(45) }
+            };
+
+            CalendarEntry? next = NextMeetingSelector.GetNextMeeting(meetings, now);
+            Assert.NotNull(next);
+            Assert.Equal("Real Meeting", next!.Title);
+        }
+
+        [Fact]
+        public void GetNextMeeting_RespectsFlag_WhenDisabled()
+        {
+            DateTime now = DateTime.Now;
+            CalendarEntry[] meetings = new[]
+            {
+                new CalendarEntry { Title = "Free", StartTime = now.AddMinutes(5), EndTime = now.AddMinutes(35) },
+                new CalendarEntry { Title = "Real Meeting", StartTime = now.AddMinutes(15), EndTime = now.AddMinutes(45) }
+            };
+
+            // When ignoring is disabled, the Free meeting should be selected as it's earliest
+            CalendarEntry? next = NextMeetingSelector.GetNextMeeting(meetings, now, ignoreFreeOrFollowing: false);
+            Assert.NotNull(next);
+            Assert.Equal("Free", next!.Title);
+        }
     }
 }

@@ -25,6 +25,11 @@ namespace ComingUpNextTray.Models
         /// </summary>
         public Uri? MeetingUrl { get; set; }
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this entry should be considered free/placeholder (e.g. TRANSP:TRANSPARENT, STATUS:FREE or summary markers).
+        /// </summary>
+        public bool IsFreeOrFollowing { get; set; }
+
         /// <inheritdoc />
         public override string ToString() => $"{this.Title} @ {this.StartTime:u}";
     }

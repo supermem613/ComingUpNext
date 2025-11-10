@@ -22,6 +22,7 @@ namespace ComingUpNextTray
         private DateTime _lastRefreshUtc;
         private int _refreshMinutes = 5;
         private bool _showHoverWindow = true;
+        private bool _ignoreFreeOrFollowing = true;
         private string? _lastFetchError;
         private int? _hoverWindowLeft;
         private int? _hoverWindowTop;
@@ -129,7 +130,7 @@ namespace ComingUpNextTray
             {
                 // Try the error-propagating fetch so we can show users what went wrong.
                 IReadOnlyList<CalendarEntry> entries;
-                if (Uri.TryCreate(this._calendarUrl, UriKind.Absolute, out var uri))
+                if (Uri.TryCreate(this._calendarUrl, UriKind.Absolute, out Uri? uri))
                 {
                     entries = await this._calendarService.FetchWithErrorsAsync(uri, ct).ConfigureAwait(false);
                 }
@@ -140,7 +141,7 @@ namespace ComingUpNextTray
 
                 this._lastFetchError = null;
                 this._lastEntries = entries;
-                this._nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now);
+                this._nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now, this._ignoreFreeOrFollowing);
                 this._lastRefreshUtc = DateTime.UtcNow;
                 return true;
             }
@@ -303,17 +304,16 @@ namespace ComingUpNextTray
 
             DateTime now = DateTime.Now;
 
-            // Ensure _nextMeeting is aligned; if not, compute.
-            CalendarEntry? first = this._nextMeeting ?? NextMeetingSelector.GetNextMeeting(this._lastEntries, now);
+            // Ensure _nextMeeting is aligned; if not, compute using the ignore-free/following setting.
+            CalendarEntry? first = this._nextMeeting ?? NextMeetingSelector.GetNextMeeting(this._lastEntries, now, this._ignoreFreeOrFollowing);
             if (first is null)
             {
                 return null;
             }
 
-            return this._lastEntries
-                .Where(e => e.StartTime >= now && e != first)
-                .OrderBy(e => e.StartTime)
-                .FirstOrDefault();
+            // Compute second by selecting the next entry after 'first' while also applying the ignore filter.
+            IEnumerable<CalendarEntry> candidates = this._lastEntries.Where(e => e.StartTime >= now && e != first);
+            return NextMeetingSelector.GetNextMeeting(candidates, now, this._ignoreFreeOrFollowing);
         }
 
         /// <summary>
@@ -329,7 +329,7 @@ namespace ComingUpNextTray
 
             if (now >= this._nextMeeting.EndTime)
             {
-                this._nextMeeting = NextMeetingSelector.GetNextMeeting(this._lastEntries, now);
+                this._nextMeeting = NextMeetingSelector.GetNextMeeting(this._lastEntries, now, this._ignoreFreeOrFollowing);
             }
         }
 
@@ -356,7 +356,9 @@ namespace ComingUpNextTray
         internal void SetCalendarUrl(string? url)
         {
             this._calendarUrl = string.IsNullOrWhiteSpace(url) ? string.Empty : url.Trim();
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes });
+
+            // Save full config to preserve other values
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
         }
 
         /// <summary>Sets refresh interval minutes and persists config.</summary>
@@ -369,7 +371,7 @@ namespace ComingUpNextTray
             }
 
             this._refreshMinutes = minutes;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
         }
 
         /// <summary>Gets whether to show the hover window.</summary>
@@ -381,7 +383,7 @@ namespace ComingUpNextTray
         internal void SetShowHoverWindow(bool v)
         {
             this._showHoverWindow = v;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
         }
 
         /// <summary>
@@ -413,7 +415,7 @@ namespace ComingUpNextTray
         {
             this._hoverWindowLeft = left;
             this._hoverWindowTop = top;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
         }
 
         /// <summary>Sets hover window size and persists config.</summary>
@@ -423,7 +425,19 @@ namespace ComingUpNextTray
         {
             this._hoverWindowWidth = width;
             this._hoverWindowHeight = height;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+        }
+
+        /// <summary>Gets whether free/following meetings are ignored.</summary>
+        /// <returns>True if such meetings are ignored; otherwise false.</returns>
+        internal bool GetIgnoreFreeOrFollowingForUi() => this._ignoreFreeOrFollowing;
+
+        /// <summary>Sets whether free/following meetings are ignored and persists config.</summary>
+        /// <param name="v">New value indicating whether to ignore free/following meetings.</param>
+        internal void SetIgnoreFreeOrFollowing(bool v)
+        {
+            this._ignoreFreeOrFollowing = v;
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
         }
 
         /// <summary>
