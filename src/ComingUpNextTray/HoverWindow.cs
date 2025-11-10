@@ -115,7 +115,7 @@ namespace ComingUpNextTray
             this.Size = new Size(Math.Min(width, 420), height);
         }
 
-    /// <summary>
+        /// <summary>
         /// Sets the background and foreground to match the specified colors.
         /// </summary>
         /// <param name="background">Background color.</param>

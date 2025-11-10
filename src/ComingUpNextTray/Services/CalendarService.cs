@@ -12,8 +12,28 @@ namespace ComingUpNextTray.Services
         private static readonly char[] LineSplitSeparators = new[] { '\r', '\n' };
 
         // HttpClient is intended to be reused; dispose only when this service is disposed (CA1001).
-        private readonly HttpClient httpClient = new ();
+        private readonly HttpClient httpClient;
+
+        // Lightweight change validators; we intentionally do NOT cache ICS content or parsed entries.
+        private string? lastEtag;
+        private DateTimeOffset? lastModified;
         private bool disposed;
+
+        /// <summary>Initializes a new instance of the <see cref="CalendarService"/> class.</summary>
+        internal CalendarService()
+        {
+            this.httpClient = new HttpClient();
+        }
+
+        /// <summary>Initializes a new instance of the <see cref="CalendarService"/> class using a custom <see cref="HttpMessageHandler"/>. Internal for test injection; production code uses the default constructor.</summary>
+        /// <param name="handler">Custom HTTP message handler.</param>
+        internal CalendarService(HttpMessageHandler handler)
+        {
+            this.httpClient = new HttpClient(handler, disposeHandler: true);
+        }
+
+        /// <summary>Gets a value indicating whether previously observed change validators (ETag or Last-Modified) are available.</summary>
+        public bool HasChangeValidators => this.lastEtag != null || this.lastModified != null;
 
         /// <summary>
         /// Fetches and parses calendar entries from the specified ICS URL.
@@ -67,6 +87,55 @@ namespace ComingUpNextTray.Services
         }
 
         /// <summary>
+        /// Performs a conditional GET using previously observed ETag / Last-Modified validators (if any) and
+        /// returns parsed entries only when the server indicates the resource changed. On 304 Not Modified an empty list is returned
+        /// allowing callers to decide whether to reuse prior results. This service purposely does not retain prior entries or ICS text.
+        /// </summary>
+        /// <param name="calendarIcsUri">ICS feed URI.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>List of parsed entries when changed; empty list on 304 or errors.</returns>
+        public async Task<IReadOnlyList<CalendarEntry>> FetchIfChangedAsync(Uri calendarIcsUri, CancellationToken ct = default)
+        {
+            try
+            {
+                using HttpRequestMessage req = new (HttpMethod.Get, calendarIcsUri);
+                if (!string.IsNullOrEmpty(this.lastEtag))
+                {
+                    req.Headers.TryAddWithoutValidation("If-None-Match", this.lastEtag);
+                }
+
+                if (this.lastModified.HasValue)
+                {
+                    req.Headers.IfModifiedSince = this.lastModified;
+                }
+
+                using HttpResponseMessage resp = await this.httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+                if (resp.StatusCode == System.Net.HttpStatusCode.NotModified)
+                {
+                    return Array.Empty<CalendarEntry>();
+                }
+
+                if (!resp.IsSuccessStatusCode)
+                {
+                    return Array.Empty<CalendarEntry>();
+                }
+
+                this.lastEtag = resp.Headers.ETag?.ToString();
+                this.lastModified = resp.Content.Headers.LastModified;
+                string text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                return ParseIcs(text);
+            }
+            catch (HttpRequestException)
+            {
+                return Array.Empty<CalendarEntry>();
+            }
+            catch (TaskCanceledException)
+            {
+                return Array.Empty<CalendarEntry>();
+            }
+        }
+
+        /// <summary>
         /// Similar to <see cref="FetchAsync(Uri, CancellationToken)"/> but propagates failures as exceptions
         /// so callers can inspect error messages. Use this when the caller wants to display errors to the user.
         /// </summary>
@@ -104,6 +173,65 @@ namespace ComingUpNextTray.Services
             string text = Encoding.UTF8.GetString(bytes);
             return ParseIcs(text);
         }
+
+        /// <summary>
+        /// Same as <see cref="FetchWithErrorsAsync"/> but uses conditional validators to potentially avoid downloading the body.
+        /// Throws only when the server returns an error status for a changed resource; 304 yields an empty list.
+        /// </summary>
+        /// <param name="calendarIcsUri">ICS feed URI.</param>
+        /// <param name="ct">Cancellation token.</param>
+        /// <returns>Parsed entries when changed; empty list when not modified.</returns>
+        /// <exception cref="HttpRequestException">If HTTP status is non-success (excluding 304).</exception>
+        public async Task<IReadOnlyList<CalendarEntry>> FetchIfChangedWithErrorsAsync(Uri calendarIcsUri, CancellationToken ct = default)
+        {
+            using HttpRequestMessage req = new (HttpMethod.Get, calendarIcsUri);
+            if (!string.IsNullOrEmpty(this.lastEtag))
+            {
+                req.Headers.TryAddWithoutValidation("If-None-Match", this.lastEtag);
+            }
+
+            if (this.lastModified.HasValue)
+            {
+                req.Headers.IfModifiedSince = this.lastModified;
+            }
+
+            using HttpResponseMessage resp = await this.httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotModified)
+            {
+                return Array.Empty<CalendarEntry>();
+            }
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                int code = (int)resp.StatusCode;
+                string reason = resp.ReasonPhrase ?? resp.StatusCode.ToString();
+                string loc = resp.Headers.Location?.ToString() ?? string.Empty;
+                string hint = string.Empty;
+                if (code >= 300 && code < 400)
+                {
+                    hint = " Redirected location may require authentication.";
+                }
+                else if (code == 401 || code == 403)
+                {
+                    hint = " Calendar feed appears to require authentication (401/403).";
+                }
+
+                string msg = !string.IsNullOrEmpty(loc)
+                    ? $"HTTP {code} {reason} -> {loc}.{hint}"
+                    : $"HTTP {code} {reason}.{hint}";
+
+                throw new HttpRequestException(msg);
+            }
+
+            this.lastEtag = resp.Headers.ETag?.ToString();
+            this.lastModified = resp.Content.Headers.LastModified;
+            string text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            return ParseIcs(text);
+        }
+
+        /// <summary>
+        /// Indicates whether conditional request validators were previously observed (ETag or Last-Modified).
+        /// </summary>
 
         /// <summary>
         /// Disposes the underlying <see cref="HttpClient"/> instance used by this service.

@@ -129,19 +129,30 @@ namespace ComingUpNextTray
             try
             {
                 // Try the error-propagating fetch so we can show users what went wrong.
-                IReadOnlyList<CalendarEntry> entries;
+                IReadOnlyList<CalendarEntry> newEntries = Array.Empty<CalendarEntry>();
+                bool changed = false;
                 if (Uri.TryCreate(this._calendarUrl, UriKind.Absolute, out Uri? uri))
                 {
-                    entries = await this._calendarService.FetchWithErrorsAsync(uri, ct).ConfigureAwait(false);
-                }
-                else
-                {
-                    entries = Array.Empty<CalendarEntry>();
+                    // Prefer conditional fetch when we already have validators; fall back to full fetch otherwise.
+                    if (this._calendarService.HasChangeValidators)
+                    {
+                        newEntries = await this._calendarService.FetchIfChangedWithErrorsAsync(uri, ct).ConfigureAwait(false);
+                        changed = newEntries.Count > 0; // empty list means not modified (or error not thrown).
+                        if (!changed && this._lastEntries != null)
+                        {
+                            newEntries = this._lastEntries; // reuse prior parsed entries.
+                        }
+                    }
+                    else
+                    {
+                        newEntries = await this._calendarService.FetchWithErrorsAsync(uri, ct).ConfigureAwait(false);
+                        changed = true;
+                    }
                 }
 
                 this._lastFetchError = null;
-                this._lastEntries = entries;
-                this._nextMeeting = NextMeetingSelector.GetNextMeeting(entries, DateTime.Now, this._ignoreFreeOrFollowing);
+                this._lastEntries = newEntries;
+                this._nextMeeting = NextMeetingSelector.GetNextMeeting(newEntries, DateTime.Now, this._ignoreFreeOrFollowing);
                 this._lastRefreshUtc = DateTime.UtcNow;
                 return true;
             }

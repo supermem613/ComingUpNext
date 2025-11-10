@@ -18,6 +18,7 @@ namespace ComingUpNextTray
         private readonly ContextMenuStrip menu;
         private readonly ToolStripMenuItem nextMeetingDisplayItem; // shows formatted first meeting
         private readonly ToolStripMenuItem secondMeetingDisplayItem; // shows formatted second meeting
+        private readonly ToolStripMenuItem lastUpdatedDisplayItem; // shows last successful refresh timestamp
         private readonly System.Windows.Forms.Timer refreshTimer;
         private readonly System.Windows.Forms.Timer overlayTimer; // updates icon/tooltip more frequently
         private ToolStripMenuItem? toggleHoverWindowItem;
@@ -45,6 +46,7 @@ namespace ComingUpNextTray
             // Dynamic meeting display items (inserted at top later):
             this.nextMeetingDisplayItem = new ToolStripMenuItem(string.Empty) { Enabled = false }; // will show formatted first meeting
             this.secondMeetingDisplayItem = new ToolStripMenuItem(string.Empty) { Enabled = false }; // will show formatted second meeting
+            this.lastUpdatedDisplayItem = new ToolStripMenuItem(string.Empty) { Enabled = false }; // will show last updated timestamp
 
             // Core items
             ToolStripMenuItem openMeetingItem = new ToolStripMenuItem(UiText.OpenMeeting, null, this.OnOpenMeetingClick) { Enabled = false };
@@ -85,6 +87,7 @@ namespace ComingUpNextTray
             // Insert meeting display placeholders at top.
             this.menu.Items.Add(this.nextMeetingDisplayItem);
             this.menu.Items.Add(this.secondMeetingDisplayItem);
+            this.menu.Items.Add(this.lastUpdatedDisplayItem);
             this.menu.Items.Add(new ToolStripSeparator());
             this.menu.Items.Add(openMeetingItem);
             this.menu.Items.Add(copyMeetingLinkItem);
@@ -246,6 +249,7 @@ namespace ComingUpNextTray
                 this.notifyIcon.Dispose();
                 this.nextMeetingDisplayItem.Dispose();
                 this.secondMeetingDisplayItem.Dispose();
+                this.lastUpdatedDisplayItem.Dispose();
                 this.toggleHoverWindowItem?.Dispose();
                 this.toggleIgnoreFreeFollowingItem?.Dispose();
                 this.menu.Dispose();
@@ -400,6 +404,20 @@ namespace ComingUpNextTray
 
             this.secondMeetingDisplayItem.Text = second is null ? string.Empty : NextMeetingSelector.FormatTooltip(second, DateTime.Now);
             this.secondMeetingDisplayItem.Visible = second is not null;
+
+            // Update last updated timestamp line
+            DateTime lastUtc = this.app.GetLastRefreshUtcForUi();
+            if (lastUtc != default)
+            {
+                DateTime local = lastUtc.ToLocalTime();
+                this.lastUpdatedDisplayItem.Text = $"Updated {local:MM/dd ddd h:mm tt}";
+                this.lastUpdatedDisplayItem.Visible = true;
+            }
+            else
+            {
+                this.lastUpdatedDisplayItem.Visible = false;
+            }
+
             string calendarUrl = this.app.GetCalendarUrlForUi();
             if (this.toggleHoverWindowItem is not null)
             {
