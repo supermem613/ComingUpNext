@@ -18,6 +18,20 @@ namespace ComingUpNextTray.Tests {
         }
 
         [Fact]
+        public void GetNextMeeting_IncludesMeetingStarted30SecondsAgo()
+        {
+            DateTime now = DateTime.Now;
+            CalendarEntry[] meetings = new[]
+            {
+                new CalendarEntry { Title = "JustStarted", StartTime = now.AddSeconds(-30), EndTime = now.AddMinutes(30) },
+                new CalendarEntry { Title = "Later", StartTime = now.AddMinutes(10), EndTime = now.AddMinutes(40) }
+            };
+            CalendarEntry? next = NextMeetingSelector.GetNextMeeting(meetings, now);
+            Assert.NotNull(next);
+            Assert.Equal("JustStarted", next!.Title);
+        }
+
+        [Fact]
         public void FormatTooltip_AbsoluteTimeMinutesAhead() {
             DateTime now = DateTime.Now;
             CalendarEntry meeting = new CalendarEntry { Title = "Soon", StartTime = now.AddMinutes(12), EndTime = now.AddMinutes(42) };

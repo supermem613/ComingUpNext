@@ -90,14 +90,23 @@ namespace ComingUpNextTray
                 this.currentMeeting = meeting;
                 string title = meeting.Title ?? "Untitled";
 
-                // Only append "(In X)" for meaningful overlay tokens.
-                // Suppress for non-minute symbols like '?', '-' or the infinity symbol.
+                // Only append a qualifier for meaningful overlay tokens.
+                // If the token represents zero minutes (e.g. "0" or "0 min"), show "(now)" instead of "(in 0)".
                 if (!string.IsNullOrEmpty(overlayToken)
                     && overlayToken != UiText.InfiniteSymbol
                     && overlayToken != "?"
                     && overlayToken != "-")
                 {
-                    this.titleLabel.Text = $"{title} (in {overlayToken})";
+                    string normalized = overlayToken.Trim().ToUpperInvariant();
+                    bool isZero = normalized == UiText.ZeroMinutes || normalized.StartsWith("0 ", System.StringComparison.OrdinalIgnoreCase) || normalized == "0MIN" || normalized == "0M" || string.Equals(normalized, UiText.NowLabel, System.StringComparison.OrdinalIgnoreCase);
+                    if (isZero)
+                    {
+                        this.titleLabel.Text = $"{title} (now)";
+                    }
+                    else
+                    {
+                        this.titleLabel.Text = $"{title} (in {overlayToken})";
+                    }
                 }
                 else
                 {

@@ -259,12 +259,12 @@ namespace ComingUpNextTray
                     token = UiText.InfiniteSymbol;
                     break;
                 case IconState.Started:
-                    token = UiText.ZeroMinutes;
+                    token = UiText.NowLabel;
                     break;
                 case IconState.MinutesRemaining:
                     if (this._nextMeeting is null)
                     {
-                        token = UiText.ZeroMinutes;
+                        token = UiText.NowLabel;
                     }
                     else
                     {

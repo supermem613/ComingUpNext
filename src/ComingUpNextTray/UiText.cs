@@ -77,6 +77,9 @@ namespace ComingUpNextTray
         /// <summary>Zero minutes indicator text.</summary>
         internal const string ZeroMinutes = "0";
 
+        /// <summary>Label used to indicate a meeting happening now in overlay tokens.</summary>
+        internal const string NowLabel = "now";
+
         /// <summary>Suffix appended for hour values.</summary>
         internal const string HourSuffix = "h";
 

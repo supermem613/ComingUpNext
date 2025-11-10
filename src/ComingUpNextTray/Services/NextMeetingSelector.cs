@@ -17,7 +17,9 @@ namespace ComingUpNextTray.Services
         /// <returns>The next meeting or <c>null</c> if none.</returns>
         internal static CalendarEntry? GetNextMeeting(IEnumerable<CalendarEntry> entries, DateTime now, bool ignoreFreeOrFollowing = true)
         {
-            IEnumerable<CalendarEntry> query = entries.Where(e => e.StartTime >= now);
+            // Allow meetings that began up to 60 seconds ago to be considered 'now' so the UI holds them for an extra minute.
+            DateTime lowerBound = now.AddSeconds(-60);
+            IEnumerable<CalendarEntry> query = entries.Where(e => e.StartTime >= lowerBound);
 
             if (ignoreFreeOrFollowing)
             {
