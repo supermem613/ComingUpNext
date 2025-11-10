@@ -93,5 +93,56 @@ namespace ComingUpNextTray.Tests
             Assert.Single(second);
             Assert.NotEqual(first[0].StartTime, second[0].StartTime);
         }
+
+        [Fact]
+        public async Task FallbackHash_SameBody_NoValidators_ReturnsEmptySecond()
+        {
+            int call = 0;
+            using StubHandler handler = new StubHandler(_ =>
+            {
+                call++;
+                // No ETag header, always 200 with identical body
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("BEGIN:VEVENT\nDTSTART:20250101T130000Z\nEND:VEVENT")
+                };
+            });
+
+            using CalendarService service = new CalendarService(handler);
+            IReadOnlyList<ComingUpNextTray.Models.CalendarEntry> first = await service.FetchIfChangedAsync(new Uri("https://example.com/calendar.ics"));
+            Assert.NotEmpty(first);
+
+            IReadOnlyList<ComingUpNextTray.Models.CalendarEntry> second = await service.FetchIfChangedAsync(new Uri("https://example.com/calendar.ics"));
+            Assert.Empty(second); // fallback hash should detect identical body and indicate unchanged
+        }
+
+        [Fact]
+        public async Task FallbackHash_DifferentBody_NoValidators_ReturnsBoth()
+        {
+            int call = 0;
+            using StubHandler handler = new StubHandler(_ =>
+            {
+                call++;
+                if (call == 1)
+                {
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent("BEGIN:VEVENT\nDTSTART:20250101T130000Z\nEND:VEVENT")
+                    };
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("BEGIN:VEVENT\nDTSTART:20250102T130000Z\nEND:VEVENT")
+                };
+            });
+
+            using CalendarService service = new CalendarService(handler);
+            IReadOnlyList<ComingUpNextTray.Models.CalendarEntry> first = await service.FetchIfChangedAsync(new Uri("https://example.com/calendar.ics"));
+            IReadOnlyList<ComingUpNextTray.Models.CalendarEntry> second = await service.FetchIfChangedAsync(new Uri("https://example.com/calendar.ics"));
+            Assert.Single(first);
+            Assert.Single(second);
+            Assert.NotEqual(first[0].StartTime, second[0].StartTime);
+        }
     }
 }

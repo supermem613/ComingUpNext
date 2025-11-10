@@ -1,6 +1,7 @@
 namespace ComingUpNextTray.Services
 {
     using System.Globalization;
+    using System.Security.Cryptography;
     using System.Text;
     using ComingUpNextTray.Models;
 
@@ -17,6 +18,9 @@ namespace ComingUpNextTray.Services
         // Lightweight change validators; we intentionally do NOT cache ICS content or parsed entries.
         private string? lastEtag;
         private DateTimeOffset? lastModified;
+
+        // Fallback when servers do not provide ETag/Last-Modified: store a hash of the last response body
+        private string? lastContentHash;
         private bool disposed;
 
         /// <summary>Initializes a new instance of the <see cref="CalendarService"/> class.</summary>
@@ -120,9 +124,31 @@ namespace ComingUpNextTray.Services
                     return Array.Empty<CalendarEntry>();
                 }
 
+                // Read the body so we can compute a fallback hash when the server doesn't provide validators.
+                byte[] bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+
+                // Compute content hash
+                string newHash = ComputeHash(bytes);
+
+                // If server does not provide ETag or Last-Modified, use the hash fallback to detect unchanged content.
+                bool hasEtag = resp.Headers.ETag != null;
+                bool hasLastModified = resp.Content.Headers.LastModified.HasValue;
+                if (!hasEtag && !hasLastModified)
+                {
+                    if (!string.IsNullOrEmpty(this.lastContentHash) && this.lastContentHash == newHash)
+                    {
+                        // Content unchanged compared to last observed body; avoid parsing.
+                        return Array.Empty<CalendarEntry>();
+                    }
+
+                    // Update stored body hash so future requests can be compared.
+                    this.lastContentHash = newHash;
+                }
+
+                // Update any validators the server did provide (may be null)
                 this.lastEtag = resp.Headers.ETag?.ToString();
                 this.lastModified = resp.Content.Headers.LastModified;
-                string text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                string text = Encoding.UTF8.GetString(bytes);
                 return ParseIcs(text);
             }
             catch (HttpRequestException)
@@ -825,6 +851,19 @@ namespace ComingUpNextTray.Services
             {
                 entry.MeetingUrl = uri;
             }
+        }
+
+        private static string ComputeHash(byte[] data)
+        {
+            // Return a hex-encoded SHA256 of the content for quick comparisons.
+            byte[] hash = SHA256.HashData(data);
+            StringBuilder sb = new StringBuilder(hash.Length * 2);
+            foreach (byte b in hash)
+            {
+                sb.Append(b.ToString("x2", System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            return sb.ToString();
         }
     }
 }
