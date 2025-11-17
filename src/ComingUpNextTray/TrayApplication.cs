@@ -137,10 +137,23 @@ namespace ComingUpNextTray
                     if (this._calendarService.HasChangeValidators)
                     {
                         newEntries = await this._calendarService.FetchIfChangedWithErrorsAsync(uri, ct).ConfigureAwait(false);
-                        changed = newEntries.Count > 0; // empty list means not modified (or error not thrown).
-                        if (!changed && this._lastEntries != null)
+                        changed = newEntries.Count > 0; // empty list means not modified (304) or no changed body.
+
+                        if (!changed)
                         {
-                            newEntries = this._lastEntries; // reuse prior parsed entries.
+                            if (this._lastEntries != null)
+                            {
+                                // Reuse previously parsed entries when not modified.
+                                newEntries = this._lastEntries;
+                            }
+                            else
+                            {
+                                // Conditional request returned 304 but we don't have cached entries
+                                // (possible after restart with server-side validators). Fetch full body
+                                // so we can populate the initial entries rather than showing empty UI.
+                                newEntries = await this._calendarService.FetchWithErrorsAsync(uri, ct).ConfigureAwait(false);
+                                changed = true;
+                            }
                         }
                     }
                     else
