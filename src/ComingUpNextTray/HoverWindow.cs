@@ -33,6 +33,7 @@ namespace ComingUpNextTray
             {
                 AutoSize = true,
                 ForeColor = Color.White,
+                UseMnemonic = false,
                 Font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold, GraphicsUnit.Point),
                 Location = new Point(8, 8),
             };
@@ -41,6 +42,7 @@ namespace ComingUpNextTray
             {
                 AutoSize = true,
                 ForeColor = Color.White,
+                UseMnemonic = false,
                 Font = new Font(FontFamily.GenericSansSerif, 9f, FontStyle.Regular, GraphicsUnit.Point),
                 Location = new Point(8, 28),
             };
