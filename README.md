@@ -102,6 +102,35 @@ msiexec /x ComingUpNextTray-1.0.0.msi /qn
 
 If you modify published output location or add resources, re-run the build script to regenerate harvested components.
 
+## Tools
+
+This repository includes two small CLI tools under the `tools/` folder useful for debugging and reproducing the app's behavior against `.ics` feeds.
+
+- **CalendarInspector** (`tools/CalendarInspector`)
+	- Purpose: Download or read an ICS payload and print diagnostic information including raw `VEVENT` blocks, parsed entries and a recurrence expansion log. Useful to inspect what the parser actually sees and how recurrences expand.
+	- Usage (download a URL or read a file):
+		```powershell
+		# URL (will attempt to GET the feed)
+		dotnet run --project "tools\CalendarInspector\CalendarInspector.csproj" "https://example.com/calendar.ics"
+
+		# Local file
+		dotnet run --project "tools\CalendarInspector\CalendarInspector.csproj" "C:\path\to\calendar.ics"
+		```
+	- Notes: The inspector prints raw VEVENT blocks and a summary of parsed entries; it does not apply the app's next-meeting selection rules (it's focused on parsing diagnostics).
+
+- **NextMeetingInspector** (`tools/NextMeetingInspector`)
+	- Purpose: Mimics the tray application's selection logic and prints the single next meeting chosen by the app. It reuses `CalendarService` and `NextMeetingSelector` so behavior should match the running tray app closely.
+	- Usage (URL-only):
+		```powershell
+		dotnet run --project "tools\NextMeetingInspector\NextMeetingInspector.csproj" "https://example.com/calendar.ics" [ignoreFreeOrFollowing:true|false]
+		```
+		- The `ignoreFreeOrFollowing` flag is optional and defaults to `true` (matches the app's default behavior).
+	- Notes and troubleshooting:
+		- The tool expects an absolute `http` or `https` URL. It uses the same HTTP fetch logic as the tray app (conditional requests, ETag/Last-Modified handling) where applicable.
+		- Some calendar providers (Exchange/Office365) may require a public/share link or authentication; if you get `HTTP 401/403` or `HTTP 400`, verify the URL is a public ICS export link or supply an appropriate authenticated feed.
+		- The tool injects a browser-like `User-Agent` header to improve compatibility with servers that reject non-browser clients.
+
+
 ## Auto Start (Optional)
 Create a shortcut to the published EXE in:
 ```text
