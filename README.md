@@ -2,6 +2,19 @@
 
 A lightweight Windows 11 tray application that displays your next upcoming meeting from a public calendar ICS (.ics) feed.
 
+It shows a dynamic tooltip with the next meeting title and time, and notifies you when the meeting is about to start. Optionally, it shows a hover/preview window with more details.
+
+## Screenshots
+
+### System tray + tooltip
+![System tray showing the dynamic tooltip for the next meeting](screenshot.png)
+
+### Context menu (right‑click)
+![Context menu with Open Meeting, Refresh, Set Calendar URL, Exit](screenshot2.png)
+
+### Hover/preview window
+![Hover window showing upcoming meeting details and quick actions](screenshot3.png)
+
 ## Features
  - Tray icon with dynamic tooltip showing: `Next: <Title> (In X min|In Y h|Mon HH:mm)`
  - Auto balloon notification when a meeting is within 15 minutes (once per meeting)
@@ -9,8 +22,6 @@ A lightweight Windows 11 tray application that displays your next upcoming meeti
  - Stores configuration in `%APPDATA%/ComingUpNext/config.json`
  - Lightweight ICS parsing (skips malformed events)
  - Configurable refresh interval (default 5 minutes) via `RefreshMinutes` in `config.json` or "Set Refresh Minutes" context menu option
-
-![Screenshot](screenshot.png)
 
 ## ICS Format Expectations
 Provide a publicly accessible `.ics` URL (can be from Outlook, Google Calendar, etc.). The app reads `VEVENT` blocks and uses:
