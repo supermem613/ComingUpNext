@@ -409,14 +409,17 @@ namespace ComingUpNextTray
             string? fetchErr = this.app.GetLastFetchErrorForUi();
             if (!string.IsNullOrEmpty(fetchErr))
             {
-                this.nextMeetingDisplayItem.Text = UiText.FetchErrorPrefix + fetchErr;
+                // Escape ampersands so ToolStripMenuItem does not interpret them as mnemonics
+                this.nextMeetingDisplayItem.Text = (UiText.FetchErrorPrefix + fetchErr).Replace("&", "&&", System.StringComparison.Ordinal);
             }
             else
             {
-                this.nextMeetingDisplayItem.Text = next is null ? UiText.NoUpcomingMeetings : NextMeetingSelector.FormatTooltip(next, DateTime.Now);
+                string nextText = next is null ? UiText.NoUpcomingMeetings : NextMeetingSelector.FormatTooltip(next, DateTime.Now);
+                this.nextMeetingDisplayItem.Text = nextText.Replace("&", "&&", System.StringComparison.Ordinal);
             }
 
-            this.secondMeetingDisplayItem.Text = second is null ? string.Empty : NextMeetingSelector.FormatTooltip(second, DateTime.Now);
+            string secondText = second is null ? string.Empty : NextMeetingSelector.FormatTooltip(second, DateTime.Now);
+            this.secondMeetingDisplayItem.Text = secondText.Replace("&", "&&", System.StringComparison.Ordinal);
             this.secondMeetingDisplayItem.Visible = second is not null;
 
             // Update last updated timestamp line
