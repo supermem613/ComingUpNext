@@ -54,5 +54,18 @@ namespace ComingUpNextTray.Tests {
 
             hw.Dispose();
         }
+
+        [Fact]
+        public void VeryLongTitle_IsTruncated() {
+            HoverWindow hw = new HoverWindow();
+            string longTitle = new string('X', 1000);
+            CalendarEntry meeting = new CalendarEntry { Title = longTitle, StartTime = DateTime.Now.AddMinutes(10), EndTime = DateTime.Now.AddHours(1) };
+            hw.UpdateMeeting(meeting, DateTime.Now);
+            string title = GetTitleText(hw);
+
+            // Expect ellipsis when truncated
+            Assert.Contains("...", title);
+            hw.Dispose();
+        }
     }
 }

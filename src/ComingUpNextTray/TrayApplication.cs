@@ -28,6 +28,8 @@ namespace ComingUpNextTray
         private int? _hoverWindowTop;
         private int? _hoverWindowWidth;
         private int? _hoverWindowHeight;
+        private int? _maxHoverTitleWidth;
+        private int? _maxMenuTextWidth;
 
         // Overlay is now always enabled; legacy flag retained only for backward compatible config file reads.
 
@@ -382,7 +384,7 @@ namespace ComingUpNextTray
             this._calendarUrl = string.IsNullOrWhiteSpace(url) ? string.Empty : url.Trim();
 
             // Save full config to preserve other values
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
         }
 
         /// <summary>Sets refresh interval minutes and persists config.</summary>
@@ -395,7 +397,7 @@ namespace ComingUpNextTray
             }
 
             this._refreshMinutes = minutes;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
         }
 
         /// <summary>Gets whether to show the hover window.</summary>
@@ -407,7 +409,7 @@ namespace ComingUpNextTray
         internal void SetShowHoverWindow(bool v)
         {
             this._showHoverWindow = v;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
         }
 
         /// <summary>
@@ -430,6 +432,30 @@ namespace ComingUpNextTray
         /// <returns>Height in pixels or null.</returns>
         internal int? GetHoverWindowHeightForUi() => this._hoverWindowHeight;
 
+        /// <summary>Gets configured maximum hover title width in pixels for truncation purposes.</summary>
+        /// <returns>Max hover title width in pixels or null to use default.</returns>
+        internal int? GetHoverTitleMaxWidthForUi() => this._maxHoverTitleWidth;
+
+        /// <summary>Sets configured maximum hover title width in pixels and persists config.</summary>
+        /// <param name="pixels">Width in pixels or null to clear.</param>
+        internal void SetHoverTitleMaxWidth(int? pixels)
+        {
+            this._maxHoverTitleWidth = pixels;
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
+        }
+
+        /// <summary>Gets configured maximum menu text width in pixels for truncation purposes.</summary>
+        /// <returns>Max menu text width in pixels or null to use default.</returns>
+        internal int? GetMenuTextMaxWidthForUi() => this._maxMenuTextWidth;
+
+        /// <summary>Sets configured maximum menu text width in pixels and persists config.</summary>
+        /// <param name="pixels">Width in pixels or null to clear.</param>
+        internal void SetMenuTextMaxWidth(int? pixels)
+        {
+            this._maxMenuTextWidth = pixels;
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
+        }
+
         /// <summary>
         /// Sets hover window position and persists config.
         /// </summary>
@@ -439,7 +465,7 @@ namespace ComingUpNextTray
         {
             this._hoverWindowLeft = left;
             this._hoverWindowTop = top;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
         }
 
         /// <summary>Sets hover window size and persists config.</summary>
@@ -449,7 +475,7 @@ namespace ComingUpNextTray
         {
             this._hoverWindowWidth = width;
             this._hoverWindowHeight = height;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
         }
 
         /// <summary>Gets whether free/following meetings are ignored.</summary>
@@ -461,7 +487,7 @@ namespace ComingUpNextTray
         internal void SetIgnoreFreeOrFollowing(bool v)
         {
             this._ignoreFreeOrFollowing = v;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight });
+            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop, HoverWindowWidth = this._hoverWindowWidth, HoverWindowHeight = this._hoverWindowHeight, MaxHoverTitleWidth = this._maxHoverTitleWidth, MaxMenuTextWidth = this._maxMenuTextWidth });
         }
 
         /// <summary>
@@ -542,6 +568,16 @@ namespace ComingUpNextTray
                     if (cfg.HoverWindowWidth is int ww)
                     {
                         this._hoverWindowWidth = ww;
+                    }
+
+                    if (cfg.MaxHoverTitleWidth is int mhw)
+                    {
+                        this._maxHoverTitleWidth = mhw;
+                    }
+
+                    if (cfg.MaxMenuTextWidth is int mmw)
+                    {
+                        this._maxMenuTextWidth = mmw;
                     }
 
                     if (cfg.HoverWindowHeight is int wh)

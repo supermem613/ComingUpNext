@@ -34,5 +34,11 @@ namespace ComingUpNextTray.Models
 
         /// <summary>Gets or sets saved height of hover window in pixels.</summary>
         public int? HoverWindowHeight { get; set; }
+
+        /// <summary>Gets or sets maximum hover title width in pixels for truncation (optional).</summary>
+        public int? MaxHoverTitleWidth { get; set; }
+
+        /// <summary>Gets or sets maximum menu text width in pixels for truncation (optional).</summary>
+        public int? MaxMenuTextWidth { get; set; }
     }
 }

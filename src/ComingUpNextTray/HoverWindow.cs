@@ -31,11 +31,14 @@ namespace ComingUpNextTray
 
             this.titleLabel = new Label
             {
-                AutoSize = true,
+                AutoSize = false,
                 ForeColor = Color.White,
                 UseMnemonic = false,
                 Font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold, GraphicsUnit.Point),
                 Location = new Point(8, 8),
+
+                // Let layout compute width; we'll cap in UpdateMeeting to avoid overly wide windows.
+                Size = new Size(204, 18),
             };
 
             this.timeLabel = new Label
@@ -60,8 +63,7 @@ namespace ComingUpNextTray
 
             this.MouseDoubleClick += this.OnMouseDoubleClick_OpenMeeting;
 
-            // Default size
-            this.Size = new Size(220, 60);
+            this.Size = new Size(UiLayout.DefaultHoverWindowWidth, UiLayout.DefaultHoverWindowHeight);
         }
 
         /// <summary>
@@ -71,8 +73,9 @@ namespace ComingUpNextTray
         /// <param name="now">Reference time for formatting.</param>
         /// <param name="overlayToken">Optional overlay token (e.g. "5" or "1h" or "5 min") to display after the title as "(In X)".</param>
         /// <param name="fetchError">Optional fetch error message to display instead of meeting information.</param>
+        /// <param name="maxTitleWidthPx">Optional override max title width in pixels for truncation. If null uses <see cref="UiLayout.DefaultMaxTextWidth"/>.</param>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1303:Do not pass literals as localized parameters", Justification = "Using centralized UiText constants; localization pending.")]
-        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null)
+        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null, int? maxTitleWidthPx = null)
         {
             // If an error occurred during fetch, display the error prominently instead of meeting info.
             if (!string.IsNullOrEmpty(fetchError))
@@ -115,6 +118,37 @@ namespace ComingUpNextTray
                     this.titleLabel.Text = title;
                 }
 
+                // Truncate title to fit within reasonable width to avoid overly wide hover window.
+                // If an overlay token is present, reserve space for the suffix (e.g. " (in 5 min)") so it is not lost.
+                int defaultMax = UiLayout.DefaultMaxTextWidth;
+                int maxInnerWidth = (maxTitleWidthPx ?? defaultMax) - this.Padding.Horizontal - 8; // leave some margin
+
+                string suffix = string.Empty;
+                if (!string.IsNullOrEmpty(overlayToken)
+                    && overlayToken != UiText.InfiniteSymbol
+                    && overlayToken != "?"
+                    && overlayToken != "-")
+                {
+                    string normalized = overlayToken.Trim().ToUpperInvariant();
+                    bool isZero = normalized == UiText.ZeroMinutes || normalized.StartsWith("0 ", System.StringComparison.OrdinalIgnoreCase) || normalized == "0MIN" || normalized == "0M" || string.Equals(normalized, UiText.NowLabel, System.StringComparison.OrdinalIgnoreCase);
+                    suffix = isZero ? " (now)" : $" (in {overlayToken})";
+                }
+
+                int suffixWidth = 0;
+                if (!string.IsNullOrEmpty(suffix))
+                {
+                    suffixWidth = TextRenderer.MeasureText(suffix, this.titleLabel.Font, new Size(int.MaxValue, int.MaxValue), TextFormatFlags.SingleLine).Width;
+                }
+
+                int avail = Math.Max(0, maxInnerWidth - suffixWidth);
+                string baseTitle = meeting.Title ?? "Untitled";
+                string truncatedBase = avail > 0 ? UiTruncation.TruncateToFit(baseTitle, this.titleLabel.Font, avail) : string.Empty;
+
+                this.titleLabel.Text = string.Concat(truncatedBase, suffix);
+
+                // Apply ellipsis behavior on the label control; UiTruncation already appends '...' when truncating the base title.
+                this.titleLabel.AutoEllipsis = true;
+
                 // If meeting is today, show just the time; otherwise include day-of-week.
                 string timeFormat = meeting.StartTime.Date == now.Date ? "h:mm tt" : "ddd h:mm tt";
                 this.timeLabel.Text = meeting.StartTime.ToString(timeFormat, CultureInfo.CurrentCulture);
@@ -123,7 +157,7 @@ namespace ComingUpNextTray
             // Resize to fit
             int width = Math.Max(this.titleLabel.Width, this.timeLabel.Width) + this.Padding.Horizontal + 8;
             int height = this.timeLabel.Bottom + this.Padding.Bottom + 8;
-            this.Size = new Size(Math.Min(width, 420), height);
+            this.Size = new Size(Math.Min(width, UiLayout.DefaultMaxTextWidth), height);
         }
 
         /// <summary>
