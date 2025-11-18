@@ -37,8 +37,8 @@ namespace ComingUpNextTray
                 Font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold, GraphicsUnit.Point),
                 Location = new Point(8, 8),
 
-                // Let layout compute width; we'll cap in UpdateMeeting to avoid overly wide windows.
-                Size = new Size(204, 18),
+                // Let layout compute width; default to the configured hover window width.
+                Size = new Size(UiLayout.DefaultHoverWindowWidth - (this.Padding.Horizontal + 8), 18),
             };
 
             this.timeLabel = new Label
@@ -73,9 +73,8 @@ namespace ComingUpNextTray
         /// <param name="now">Reference time for formatting.</param>
         /// <param name="overlayToken">Optional overlay token (e.g. "5" or "1h" or "5 min") to display after the title as "(In X)".</param>
         /// <param name="fetchError">Optional fetch error message to display instead of meeting information.</param>
-        /// <param name="maxTitleWidthPx">Optional override max title width in pixels for truncation. If null uses <see cref="UiLayout.DefaultMaxTextWidth"/>.</param>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1303:Do not pass literals as localized parameters", Justification = "Using centralized UiText constants; localization pending.")]
-        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null, int? maxTitleWidthPx = null)
+        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null)
         {
             // If an error occurred during fetch, display the error prominently instead of meeting info.
             if (!string.IsNullOrEmpty(fetchError))
@@ -118,10 +117,10 @@ namespace ComingUpNextTray
                     this.titleLabel.Text = title;
                 }
 
-                // Truncate title to fit within reasonable width to avoid overly wide hover window.
-                // If an overlay token is present, reserve space for the suffix (e.g. " (in 5 min)") so it is not lost.
-                int defaultMax = UiLayout.DefaultMaxTextWidth;
-                int maxInnerWidth = (maxTitleWidthPx ?? defaultMax) - this.Padding.Horizontal - 8; // leave some margin
+                // Truncate title to fit within the configured hover window width.
+                // Compute inner available width (account for padding and small margin).
+                int formWidth = UiLayout.DefaultHoverWindowWidth;
+                int maxInnerWidth = formWidth - this.Padding.Horizontal - 8; // leave some margin
 
                 string suffix = string.Empty;
                 if (!string.IsNullOrEmpty(overlayToken)
@@ -146,6 +145,9 @@ namespace ComingUpNextTray
 
                 this.titleLabel.Text = string.Concat(truncatedBase, suffix);
 
+                // Ensure titleLabel fills the inner width so ellipsis/AutoEllipsis layout works predictably.
+                this.titleLabel.Size = new Size(maxInnerWidth, this.titleLabel.Height);
+
                 // Apply ellipsis behavior on the label control; UiTruncation already appends '...' when truncating the base title.
                 this.titleLabel.AutoEllipsis = true;
 
@@ -154,10 +156,10 @@ namespace ComingUpNextTray
                 this.timeLabel.Text = meeting.StartTime.ToString(timeFormat, CultureInfo.CurrentCulture);
             }
 
-            // Resize to fit
+            // Resize to fit, but never exceed the configured hover window default width.
             int width = Math.Max(this.titleLabel.Width, this.timeLabel.Width) + this.Padding.Horizontal + 8;
             int height = this.timeLabel.Bottom + this.Padding.Bottom + 8;
-            this.Size = new Size(Math.Min(width, UiLayout.DefaultMaxTextWidth), height);
+            this.Size = new Size(Math.Min(width, UiLayout.DefaultHoverWindowWidth), height);
         }
 
         /// <summary>

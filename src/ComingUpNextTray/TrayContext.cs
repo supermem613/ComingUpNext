@@ -211,7 +211,7 @@ namespace ComingUpNextTray
 
                         // Provide last fetch error if present so hover can prefer showing it.
                         string? fetchErr = this.app.GetLastFetchErrorForUi();
-                        this.hoverWindow.UpdateMeeting(meeting, now, overlayTokenNow, fetchErr, this.app.GetHoverTitleMaxWidthForUi() ?? UiLayout.DefaultMaxTextWidth);
+                        this.hoverWindow.UpdateMeeting(meeting, now, overlayTokenNow, fetchErr);
 
                         // update colors using central helper
                         double? minutes2 = meeting is not null ? (meeting.StartTime - now).TotalMinutes : null;
@@ -227,7 +227,7 @@ namespace ComingUpNextTray
             {
                 this.toggleHoverWindowItem!.Checked = true;
                 this.hoverWindow = new HoverWindow();
-                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now, includeUnit: true), this.app.GetLastFetchErrorForUi(), this.app.GetHoverTitleMaxWidthForUi() ?? UiLayout.DefaultMaxTextWidth);
+                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now, includeUnit: true), this.app.GetLastFetchErrorForUi());
 
                 // Restore saved position if available, otherwise position near mouse
                 int? savedLeft = this.app.GetHoverWindowLeftForUi();
@@ -362,7 +362,7 @@ namespace ComingUpNextTray
                     DateTime nowLocal = DateTime.Now;
                     CalendarEntry? meeting = this.app.GetNextMeetingForUi();
                     string overlayTokenNow = this.app.GetOverlayText(nowLocal, includeUnit: true);
-                    this.hoverWindow.UpdateMeeting(meeting, nowLocal, overlayTokenNow, this.app.GetLastFetchErrorForUi(), this.app.GetHoverTitleMaxWidthForUi() ?? UiLayout.DefaultMaxTextWidth);
+                    this.hoverWindow.UpdateMeeting(meeting, nowLocal, overlayTokenNow, this.app.GetLastFetchErrorForUi());
                     TrayApplication.IconState state = this.app.ComputeIconState(nowLocal);
                     double? minutes2 = meeting is not null ? (meeting.StartTime - nowLocal).TotalMinutes : null;
                     (Color bg2, Color fg2) = MeetingColorHelper.GetColors(state, minutes2);
@@ -412,17 +412,17 @@ namespace ComingUpNextTray
                 // Escape ampersands so ToolStripMenuItem does not interpret them as mnemonics
                 string raw = UiText.FetchErrorPrefix + fetchErr;
                 string escaped = raw.Replace("&", "&&", System.StringComparison.Ordinal);
-                this.nextMeetingDisplayItem.Text = UiTruncation.TruncatePreservingParen(escaped, this.menu.Font, this.app.GetMenuTextMaxWidthForUi() ?? UiLayout.DefaultMaxTextWidth);
+                this.nextMeetingDisplayItem.Text = UiTruncation.TruncatePreservingParen(escaped, this.menu.Font, UiLayout.DefaultMaxTextWidth);
             }
             else
             {
                 string nextText = next is null ? UiText.NoUpcomingMeetings : NextMeetingSelector.FormatTooltip(next, DateTime.Now);
                 string escaped = nextText.Replace("&", "&&", System.StringComparison.Ordinal);
-                this.nextMeetingDisplayItem.Text = UiTruncation.TruncatePreservingParen(escaped, this.menu.Font, this.app.GetMenuTextMaxWidthForUi() ?? UiLayout.DefaultMaxTextWidth);
+                this.nextMeetingDisplayItem.Text = UiTruncation.TruncatePreservingParen(escaped, this.menu.Font, UiLayout.DefaultMaxTextWidth);
             }
 
             string secondText = second is null ? string.Empty : NextMeetingSelector.FormatTooltip(second, DateTime.Now);
-            this.secondMeetingDisplayItem.Text = UiTruncation.TruncatePreservingParen(secondText.Replace("&", "&&", System.StringComparison.Ordinal), this.menu.Font, this.app.GetMenuTextMaxWidthForUi() ?? UiLayout.DefaultMaxTextWidth);
+            this.secondMeetingDisplayItem.Text = UiTruncation.TruncatePreservingParen(secondText.Replace("&", "&&", System.StringComparison.Ordinal), this.menu.Font, UiLayout.DefaultMaxTextWidth);
 
             this.secondMeetingDisplayItem.Visible = second is not null;
 
@@ -502,7 +502,7 @@ namespace ComingUpNextTray
                     this.hoverWindow = new HoverWindow();
                 }
 
-                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now), this.app.GetLastFetchErrorForUi(), this.app.GetHoverTitleMaxWidthForUi() ?? UiLayout.DefaultMaxTextWidth);
+                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now), this.app.GetLastFetchErrorForUi());
 
                 // choose colors consistent with overlay computation
                 Color bg = Color.Black;
@@ -563,9 +563,7 @@ namespace ComingUpNextTray
 
         private void OnResetHoverWindowPositionClick(object? sender, EventArgs e)
         {
-            // Clear persisted position and size
             this.app.SetHoverWindowPosition(null, null);
-            this.app.SetHoverWindowSize(null, null);
 
             // If hover window visible, move it to default near cursor and resize to default
             if (this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
