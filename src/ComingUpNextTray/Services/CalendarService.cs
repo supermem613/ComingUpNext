@@ -386,7 +386,7 @@ namespace ComingUpNextTray.Services
                     switch (key)
                     {
                         case "SUMMARY":
-                            current.Title = value;
+                            current.Title = UnescapeIcsText(value);
 
                             // Mark simple summary markers
                             if (!string.IsNullOrWhiteSpace(value))
@@ -479,29 +479,32 @@ namespace ComingUpNextTray.Services
                                 int hrefIdx = -1;
                                 string? href = null;
 
+                                // Unescape DESCRIPTION text so any escaped commas/semicolons/newlines are normalized.
+                                string desc = UnescapeIcsText(value);
+
                                 // Look for href="..."
-                                hrefIdx = value.IndexOf("href=\"", StringComparison.OrdinalIgnoreCase);
+                                hrefIdx = desc.IndexOf("href=\"", StringComparison.OrdinalIgnoreCase);
                                 if (hrefIdx >= 0)
                                 {
                                     int hrefStart = hrefIdx + 6; // length of href="
-                                    int hrefEnd = value.IndexOf('"', hrefStart);
+                                    int hrefEnd = desc.IndexOf('"', hrefStart);
                                     if (hrefEnd > hrefStart)
                                     {
-                                        href = value[hrefStart..hrefEnd];
+                                        href = desc[hrefStart..hrefEnd];
                                     }
                                 }
 
                                 // Look for href='...'
                                 if (href is null)
                                 {
-                                    hrefIdx = value.IndexOf("href='", StringComparison.OrdinalIgnoreCase);
+                                    hrefIdx = desc.IndexOf("href='", StringComparison.OrdinalIgnoreCase);
                                     if (hrefIdx >= 0)
                                     {
                                         int hrefStart2 = hrefIdx + 6; // length of href='
-                                        int hrefEnd2 = value.IndexOf('\'', hrefStart2);
+                                        int hrefEnd2 = desc.IndexOf('\'', hrefStart2);
                                         if (hrefEnd2 > hrefStart2)
                                         {
-                                            href = value[hrefStart2..hrefEnd2];
+                                            href = desc[hrefStart2..hrefEnd2];
                                         }
                                     }
                                 }
@@ -513,10 +516,10 @@ namespace ComingUpNextTray.Services
                                 else
                                 {
                                     // Fallback: simple http substring extraction (existing behavior).
-                                    int idx = value.IndexOf("http", StringComparison.OrdinalIgnoreCase);
+                                    int idx = desc.IndexOf("http", StringComparison.OrdinalIgnoreCase);
                                     if (idx >= 0)
                                     {
-                                        string? segment = value[idx..].Split('\n', ' ', '\r', '\t').FirstOrDefault();
+                                        string? segment = desc[idx..].Split('\n', ' ', '\r', '\t').FirstOrDefault();
                                         if (!string.IsNullOrWhiteSpace(segment))
                                         {
                                             TryAssignUrl(current, segment.Trim());
@@ -583,7 +586,7 @@ namespace ComingUpNextTray.Services
                 {
                     if (line.StartsWith("SUMMARY:", System.StringComparison.OrdinalIgnoreCase))
                     {
-                        summary = line.Substring(8).Trim();
+                        summary = UnescapeIcsText(line.Substring(8).Trim());
                     }
 
                     if (line.StartsWith("DTSTART", System.StringComparison.OrdinalIgnoreCase))
@@ -851,6 +854,55 @@ namespace ComingUpNextTray.Services
             {
                 entry.MeetingUrl = uri;
             }
+        }
+
+        // Unescape ICS TEXT per RFC 5545 section 3.3.11: backslash escapes for COMMA, SEMICOLON, BACKSLASH and NEWLINE
+        private static string UnescapeIcsText(string raw)
+        {
+            if (string.IsNullOrEmpty(raw))
+            {
+                return raw;
+            }
+
+            StringBuilder sb = new StringBuilder(raw.Length);
+            for (int i = 0; i < raw.Length; i++)
+            {
+                char c = raw[i];
+                if (c == '\\' && i + 1 < raw.Length)
+                {
+                    char next = raw[i + 1];
+                    switch (next)
+                    {
+                        case 'n':
+                        case 'N':
+                            sb.Append('\n');
+                            i++;
+                            break;
+                        case ',':
+                            sb.Append(',');
+                            i++;
+                            break;
+                        case ';':
+                            sb.Append(';');
+                            i++;
+                            break;
+                        case '\\':
+                            sb.Append('\\');
+                            i++;
+                            break;
+                        default:
+                            // Unknown escape, keep both chars
+                            sb.Append(c);
+                            break;
+                    }
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+
+            return sb.ToString();
         }
 
         private static string ComputeHash(byte[] data)
