@@ -115,5 +115,103 @@ namespace ComingUpNextTray.Tests {
             // All occurrences should be marked as free/placeholder
             Assert.All(result, e => Assert.True(e.IsFreeOrFollowing, $"Entry {e} was not marked free"));
         }
+
+        [Fact]
+        public void ParseIcs_RRULEWithUntilOnTuesday_GeneratesTuesdayWhenWeekStartsLater()
+        {
+            // Regression test for bug where RRULE BYDAY=TU,TH with UNTIL on a Tuesday
+            // would skip the final Tuesday occurrence when the week's generation start
+            // point fell on Thursday (after Tuesday).
+            //
+            // DTSTART: Thursday Sept 4, 2025 @ 14:35 PST
+            // RRULE: Weekly on Tuesday and Thursday
+            // UNTIL: Tuesday Nov 25, 2025 @ 22:35 UTC (17:35 EST, 14:35 PST)
+            //
+            // The bug: expansion loop would start a week on Thursday Nov 27, see that
+            // Nov 27 > UNTIL, and exit without generating Tuesday Nov 25.
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "UID:fab-eng-sync\n" +
+                "SUMMARY:FAB Eng Sync\n" +
+                "DTSTART;TZID=Pacific Standard Time:20250904T143500\n" +
+                "DTEND;TZID=Pacific Standard Time:20250904T150000\n" +
+                "RRULE:FREQ=WEEKLY;UNTIL=20251125T223500Z;INTERVAL=1;BYDAY=TU,TH;WKST=SU\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT";
+
+            // Query on Tuesday Nov 25, 2025 at 5:16 PM EST (before the 5:35 PM meeting)
+            // In UTC this is 22:16, while UNTIL is 22:35 UTC - so within the window
+            DateTime now = new DateTime(2025, 11, 25, 17, 16, 0, DateTimeKind.Local);
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            // Must find the Tuesday Nov 25 occurrence
+            DateTime expectedDate = new DateTime(2025, 11, 25);
+            var tuesdayOccurrence = result.FirstOrDefault(e =>
+                e.StartTime.Date == expectedDate &&
+                e.Title == "FAB Eng Sync");
+
+            Assert.NotNull(tuesdayOccurrence);
+            // Verify it's the correct time (14:35 PST = 17:35 EST in standard time)
+            Assert.Equal(17, tuesdayOccurrence.StartTime.Hour); // 5 PM hour
+            Assert.Equal(35, tuesdayOccurrence.StartTime.Minute);
+        }
+
+        [Fact]
+        public void ParseIcs_RRULEWithUntilOnMonday_DoesNotGenerateLaterDaysInWeek()
+        {
+            // Test that UNTIL date is honored - days AFTER the UNTIL should not be generated
+            // even if they're in the same calendar week
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "UID:multi-day-test\n" +
+                "SUMMARY:Multi Day Meeting\n" +
+                "DTSTART:20250901T100000Z\n" +
+                "DTEND:20250901T110000Z\n" +
+                "RRULE:FREQ=WEEKLY;UNTIL=20251124T100000Z;BYDAY=TU,WE,TH\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT";
+
+            // Query on Monday Nov 24, 2025 at 9 AM - before the UNTIL time (10 AM)
+            DateTime now = new DateTime(2025, 11, 24, 9, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            // The UNTIL is Monday Nov 24 at 10 AM UTC
+            // So Tuesday Nov 25, Wed Nov 26, Thu Nov 27 should NOT be generated (they're after UNTIL)
+            var nov25 = result.FirstOrDefault(e => e.StartTime.Date == new DateTime(2025, 11, 25));
+            var nov26 = result.FirstOrDefault(e => e.StartTime.Date == new DateTime(2025, 11, 26));
+            var nov27 = result.FirstOrDefault(e => e.StartTime.Date == new DateTime(2025, 11, 27));
+
+            // None should exist - they're all after the UNTIL datetime
+            Assert.Null(nov25);
+            Assert.Null(nov26);
+            Assert.Null(nov27);
+
+            // But we should have earlier occurrences (e.g., Nov 18, 19, 20)
+            Assert.NotEmpty(result);
+        }
+
+        [Fact]
+        public void ParseIcs_RRULEWithUntilIncludesOccurrencesUpToUntilTime()
+        {
+            // Verify that occurrences ON the UNTIL date but before UNTIL time are included
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "UID:date-time-until-test\n" +
+                "SUMMARY:Daily Standup\n" +
+                "DTSTART:20251201T090000Z\n" +
+                "DTEND:20251201T091500Z\n" +
+                "RRULE:FREQ=WEEKLY;UNTIL=20251212T120000Z;BYDAY=MO,TU,WE,TH,FR\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT";
+
+            // UNTIL is Dec 12 at 12:00 UTC (noon), meeting is at 9:00 AM UTC daily
+            // So Dec 12 should be included since 9 AM < noon
+            DateTime now = new DateTime(2025, 12, 11, 8, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            // Should include Dec 12 (Friday) since meeting time (9 AM) is before UNTIL time (noon)
+            var dec12 = result.FirstOrDefault(e => e.StartTime.Date == new DateTime(2025, 12, 12));
+            Assert.NotNull(dec12);
+        }
     }
 }

@@ -785,16 +785,21 @@ namespace ComingUpNextTray.Services
             int safetyCounter = 0;
 
             // Hard cap to avoid runaway generation
-            while (generationStart <= untilLimit && safetyCounter < 2000)
+            // Continue if generationStart is within a week of untilLimit to ensure we don't miss
+            // occurrences earlier in the week (e.g., Tuesday when generationStart lands on Thursday)
+            while (generationStart <= untilLimit.AddDays(6) && safetyCounter < 2000)
             {
                 foreach (DayOfWeek targetDow in byDays)
                 {
                     DateTime candidate = generationStart.Date;
                     int diff = targetDow - candidate.DayOfWeek;
-                    if (diff != 0)
+                    if (diff < 0)
                     {
-                        candidate = candidate.AddDays(diff);
+                        // Target day is earlier in the week - move to next week
+                        diff += 7;
                     }
+
+                    candidate = candidate.AddDays(diff);
 
                     candidate = candidate.Date + prototype.StartTime.TimeOfDay;
                     if (candidate <= prototype.StartTime)
