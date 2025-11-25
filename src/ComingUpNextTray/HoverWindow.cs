@@ -29,16 +29,20 @@ namespace ComingUpNextTray
             this.Padding = new Padding(8);
             this.BackColor = Color.Black;
 
+            int labelLeft = this.Padding.Left;
+            int labelTop = this.Padding.Top;
+
             this.titleLabel = new Label
             {
                 AutoSize = false,
                 ForeColor = Color.White,
                 UseMnemonic = false,
                 Font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Bold, GraphicsUnit.Point),
-                Location = new Point(8, 8),
+                Location = new Point(labelLeft, labelTop),
+                TextAlign = ContentAlignment.TopLeft,
 
                 // Let layout compute width; default to the configured hover window width.
-                Size = new Size(UiLayout.DefaultHoverWindowWidth - (this.Padding.Horizontal + 8), 18),
+                Size = new Size(UiLayout.DefaultHoverWindowWidth - this.Padding.Horizontal - 16, 22),
             };
 
             this.timeLabel = new Label
@@ -46,8 +50,9 @@ namespace ComingUpNextTray
                 AutoSize = true,
                 ForeColor = Color.White,
                 UseMnemonic = false,
-                Font = new Font(FontFamily.GenericSansSerif, 9f, FontStyle.Regular, GraphicsUnit.Point),
-                Location = new Point(8, 28),
+                Font = new Font(FontFamily.GenericSansSerif, 10f, FontStyle.Regular, GraphicsUnit.Point),
+                Location = new Point(labelLeft, labelTop + 20),
+                TextAlign = ContentAlignment.TopLeft,
             };
 
             this.Controls.Add(this.titleLabel);
@@ -120,7 +125,7 @@ namespace ComingUpNextTray
                 // Truncate title to fit within the configured hover window width.
                 // Compute inner available width (account for padding and small margin).
                 int formWidth = UiLayout.DefaultHoverWindowWidth;
-                int maxInnerWidth = formWidth - this.Padding.Horizontal - 8; // leave some margin
+                int maxInnerWidth = formWidth - this.Padding.Horizontal - 16; // leave some margin
 
                 string suffix = string.Empty;
                 if (!string.IsNullOrEmpty(overlayToken)
@@ -157,7 +162,7 @@ namespace ComingUpNextTray
             }
 
             // Resize to fit, but never exceed the configured hover window default width.
-            int width = Math.Max(this.titleLabel.Width, this.timeLabel.Width) + this.Padding.Horizontal + 8;
+            int width = Math.Max(this.titleLabel.Width, this.timeLabel.Width) + this.Padding.Horizontal + 16;
             int height = this.timeLabel.Bottom + this.Padding.Bottom + 8;
             this.Size = new Size(Math.Min(width, UiLayout.DefaultHoverWindowWidth), height);
         }
