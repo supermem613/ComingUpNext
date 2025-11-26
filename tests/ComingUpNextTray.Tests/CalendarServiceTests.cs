@@ -82,12 +82,13 @@ namespace ComingUpNextTray.Tests {
             // VEVENT copied from user's calendar: biweekly Tuesday 09:05 PT, UNTIL 2026-11-03T17:05Z
             string ics = "BEGIN:VEVENT\nRRULE:FREQ=WEEKLY;UNTIL=20261103T170500Z;INTERVAL=2;BYDAY=TU;WKST=SU\nEXDATE;TZID=Pacific Standard Time:20250729T090500,20250923T090500\nUID:uid\nSUMMARY:1:1 Marcus, Bhavesh\nDTSTART;TZID=Pacific Standard Time:20250422T090500\nDTEND;TZID=Pacific Standard Time:20250422T093000\nSTATUS:CONFIRMED\nEND:VEVENT";
 
-            // Use a deterministic 'now' on 2025-11-04 to see if an occurrence exists on that date
-            DateTime now = new DateTime(2025, 11, 4, 0, 0, 0, DateTimeKind.Local);
+            // Use a deterministic 'now' on 2025-11-04 12:00 UTC (safe time that's Nov 4 in all timezones)
+            DateTime now = new DateTime(2025, 11, 4, 12, 0, 0, DateTimeKind.Utc).ToLocalTime();
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
 
-            // There should be at least one entry whose StartTime.Date equals 2025-11-04 in local time
-            Assert.Contains(result, e => e.StartTime.Date == now.Date && e.Title.Contains("1:1"));
+            // There should be at least one entry whose StartTime.Date equals 2025-11-04 (checking in local time)
+            DateTime expectedDate = new DateTime(2025, 11, 4);
+            Assert.Contains(result, e => e.StartTime.Date == expectedDate && e.Title.Contains("1:1"));
         }
 
         [Fact]
@@ -107,7 +108,7 @@ namespace ComingUpNextTray.Tests {
                 "END:VEVENT";
 
             // Use a 'now' before the DTSTART to ensure expansion returns occurrences
-            DateTime now = new DateTime(2025, 8, 1, 0, 0, 0, DateTimeKind.Local);
+            DateTime now = new DateTime(2025, 8, 1, 0, 0, 0, DateTimeKind.Utc).ToLocalTime();
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
 
             // There should be multiple occurrences (original + expansions)
@@ -140,9 +141,9 @@ namespace ComingUpNextTray.Tests {
                 "STATUS:CONFIRMED\n" +
                 "END:VEVENT";
 
-            // Query on Tuesday Nov 25, 2025 at 5:16 PM EST (before the 5:35 PM meeting)
-            // In UTC this is 22:16, while UNTIL is 22:35 UTC - so within the window
-            DateTime now = new DateTime(2025, 11, 25, 17, 16, 0, DateTimeKind.Local);
+            // Query on Tuesday Nov 25, 2025 at 22:16 UTC (5:16 PM EST, before the 5:35 PM EST meeting)
+            // UNTIL is 22:35 UTC - so within the window
+            DateTime now = new DateTime(2025, 11, 25, 22, 16, 0, DateTimeKind.Utc).ToLocalTime();
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
 
             // Must find the Tuesday Nov 25 occurrence
