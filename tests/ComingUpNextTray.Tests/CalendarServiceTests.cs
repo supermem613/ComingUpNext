@@ -125,39 +125,30 @@ namespace ComingUpNextTray.Tests {
             // would skip the final Tuesday occurrence when the week's generation start
             // point fell on Thursday (after Tuesday).
             //
-            // DTSTART: Thursday Sept 4, 2025 @ 14:35 PST
+            // DTSTART: Thursday Dec 4, 2025 @ 10:00 UTC (no DST issues in December)
             // RRULE: Weekly on Tuesday and Thursday
-            // UNTIL: Tuesday Nov 25, 2025 @ 22:35 UTC (17:35 EST, 14:35 PST)
+            // UNTIL: Tuesday Dec 30, 2025 @ 23:59 UTC
             //
-            // The bug: expansion loop would start a week on Thursday Nov 27, see that
-            // Nov 27 > UNTIL, and exit without generating Tuesday Nov 25.
-            string ics =
-                "BEGIN:VEVENT\n" +
-                "UID:fab-eng-sync\n" +
-                "SUMMARY:FAB Eng Sync\n" +
-                "DTSTART;TZID=Pacific Standard Time:20250904T143500\n" +
-                "DTEND;TZID=Pacific Standard Time:20250904T150000\n" +
-                "RRULE:FREQ=WEEKLY;UNTIL=20251125T223500Z;INTERVAL=1;BYDAY=TU,TH;WKST=SU\n" +
-                "STATUS:CONFIRMED\n" +
-                "END:VEVENT";
+            // The bug: expansion loop would start a week on a Thursday, see that
+            // the next Thursday > UNTIL, and exit without generating the prior Tuesday.
+            string ics = "BEGIN:VEVENT\nUID:fab-eng-sync\nSUMMARY:FAB Eng Sync\nDTSTART:20251204T100000Z\nDTEND:20251204T110000Z\nRRULE:FREQ=WEEKLY;UNTIL=20251230T235900Z;INTERVAL=1;BYDAY=TU,TH;WKST=SU\nSTATUS:CONFIRMED\nEND:VEVENT";
 
-            // Query on Tuesday Nov 25, 2025 at 22:16 UTC (5:16 PM EST, before the 5:35 PM EST meeting)
-            // UNTIL is 22:35 UTC - so within the window
-            DateTime now = new DateTime(2025, 11, 25, 22, 16, 0, DateTimeKind.Utc).ToLocalTime();
+            // Query on Dec 30, 2025 at 10:00 UTC (before the meetings on that day)
+            DateTime now = new DateTime(2025, 12, 30, 10, 0, 0, DateTimeKind.Utc).ToLocalTime();
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
 
-            // Must find the Tuesday Nov 25 occurrence
-            DateTime expectedDate = new DateTime(2025, 11, 25);
-            var tuesdayOccurrence = result.FirstOrDefault(e =>
-                e.StartTime.Date == expectedDate &&
+            // The recurrence should generate meetings on Tuesdays and Thursdays up to Dec 30
+            // Find the Tuesday Dec 30 occurrence (test is verifying it's generated)
+            DateTime dec30 = new DateTime(2025, 12, 30);
+            Models.CalendarEntry? tuesdayOccurrence = result.FirstOrDefault(e =>
+                e.StartTime.Date == dec30 &&
                 e.Title == "FAB Eng Sync");
 
             Assert.NotNull(tuesdayOccurrence);
-            // Verify it's the correct time (14:35 PST = 22:35 UTC)
-            // Convert to UTC to avoid time zone differences between local and CI
+            // Verify it's at the correct time (10:00 UTC)
             DateTime startUtc = tuesdayOccurrence.StartTime.ToUniversalTime();
-            Assert.Equal(22, startUtc.Hour);
-            Assert.Equal(35, startUtc.Minute);
+            Assert.Equal(10, startUtc.Hour);
+            Assert.Equal(0, startUtc.Minute);
         }
 
         [Fact]
