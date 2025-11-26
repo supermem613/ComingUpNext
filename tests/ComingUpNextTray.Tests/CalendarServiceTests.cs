@@ -15,7 +15,8 @@ namespace ComingUpNextTray.Tests {
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
             Models.CalendarEntry evt = Assert.Single(result);
             Assert.Equal("Test Meeting", evt.Title);
-            Assert.Equal(new DateTime(2025, 1, 1, 10, 0, 0, DateTimeKind.Utc).ToLocalTime().Hour, evt.StartTime.Hour);
+            // Verify time in UTC to avoid time zone differences
+            Assert.Equal(10, evt.StartTime.ToUniversalTime().Hour);
             // Uri normalization adds trailing slash to bare host; expect slash
             Assert.Equal("https://example.com/", evt.MeetingUrl?.ToString());
         }
@@ -151,9 +152,11 @@ namespace ComingUpNextTray.Tests {
                 e.Title == "FAB Eng Sync");
 
             Assert.NotNull(tuesdayOccurrence);
-            // Verify it's the correct time (14:35 PST = 17:35 EST in standard time)
-            Assert.Equal(17, tuesdayOccurrence.StartTime.Hour); // 5 PM hour
-            Assert.Equal(35, tuesdayOccurrence.StartTime.Minute);
+            // Verify it's the correct time (14:35 PST = 22:35 UTC)
+            // Convert to UTC to avoid time zone differences between local and CI
+            DateTime startUtc = tuesdayOccurrence.StartTime.ToUniversalTime();
+            Assert.Equal(22, startUtc.Hour);
+            Assert.Equal(35, startUtc.Minute);
         }
 
         [Fact]
