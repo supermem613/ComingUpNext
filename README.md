@@ -80,7 +80,7 @@ The output folder `publish` will contain the EXE. Version metadata (AssemblyVers
 An example WiX v5 setup is provided under `installer/`.
 
 Prerequisites:
-- .NET 9 SDK
+- .NET 10 SDK
 - WiX Toolset v5 (installed automatically by the build script if missing)
 
 Build the MSI (auto-reads `<Version>` from the csproj):
