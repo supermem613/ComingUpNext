@@ -25,7 +25,7 @@ namespace ComingUpNextTray.Services
                 {
                     bg = Color.Red;
                 }
-                else if (m <= 15)
+                else if (m <= 10)
                 {
                     bg = Color.Gold;
                     fg = Color.Black;

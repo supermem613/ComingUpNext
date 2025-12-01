@@ -7,10 +7,10 @@ namespace ComingUpNextTray.Tests
     public class NotificationHelperTests
     {
         [Theory]
-        // Starting at None should produce 15-min message at 15
-        [InlineData(14.9, 0, 1, true)]
-        // If already showed 15, then 14.9 should not produce another
-        [InlineData(14.9, 1, 1, false)]
+        // Starting at None should produce 10-min message at 10
+        [InlineData(9.9, 0, 1, true)]
+        // If already showed 10, then 9.9 should not produce another
+        [InlineData(9.9, 1, 1, false)]
         // 5 minutes threshold
         [InlineData(4.5, 0, 2, true)]
         // Already showed 5 min

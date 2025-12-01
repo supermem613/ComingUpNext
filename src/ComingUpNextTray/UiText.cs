@@ -89,8 +89,8 @@ namespace ComingUpNextTray
         /// <summary>Suffix appended to invalid config file rename.</summary>
         internal const string InvalidSuffix = ".invalid";
 
-        /// <summary>Balloon tip message when meeting starts within 15 minutes.</summary>
-        internal const string MeetingSoonBalloon = "Meeting starts within 15 minutes.";
+        /// <summary>Balloon tip message when meeting starts within 10 minutes.</summary>
+        internal const string MeetingSoonBalloon = "Meeting starts within 10 minutes.";
 
         /// <summary>Balloon tip message when meeting starts within 5 minutes.</summary>
         internal const string MeetingVerySoonBalloon = "Meeting starts within 5 minutes.";

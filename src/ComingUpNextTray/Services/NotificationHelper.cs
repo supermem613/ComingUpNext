@@ -17,7 +17,7 @@ namespace ComingUpNextTray.Services
         /// If message key is null, no balloon should be shown.</returns>
         internal static (AlertStage newStage, string? message) DetermineAlertAction(double minutes, AlertStage current)
         {
-            // Priority: now (<=0), then 5min, then 15min. Only advance if not already shown.
+            // Priority: now (<=0), then 5min, then 10min. Only advance if not already shown.
             if (minutes <= 0 && current < AlertStage.NowShown)
             {
                 return (AlertStage.NowShown, UiText.MeetingNowBalloon);
@@ -28,7 +28,7 @@ namespace ComingUpNextTray.Services
                 return (AlertStage.FiveMinutesShown, UiText.MeetingVerySoonBalloon);
             }
 
-            if (minutes <= 15 && current < AlertStage.FifteenMinutesShown)
+            if (minutes <= 10 && current < AlertStage.FifteenMinutesShown)
             {
                 return (AlertStage.FifteenMinutesShown, UiText.MeetingSoonBalloon);
             }
