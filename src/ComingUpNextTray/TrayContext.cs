@@ -324,13 +324,15 @@ namespace ComingUpNextTray
             this.OnNotifyIconDoubleClick(sender, e);
         }
 
-        private void OnSetCalendarUrlClick(object? sender, EventArgs e)
+        private async void OnSetCalendarUrlClick(object? sender, EventArgs e)
         {
             using SettingsForm form = new SettingsForm();
             form.Initialize(this.app);
-            if (form.ShowDialog() == DialogResult.OK)
+            DialogResult result = form.ShowDialog();
+            if (result == DialogResult.OK)
             {
-                _ = this.RefreshAndUpdateUiAsync();
+                // Force immediate refresh and UI update after settings save
+                await this.RefreshAndUpdateUiAsync().ConfigureAwait(true);
             }
         }
 
@@ -476,6 +478,7 @@ namespace ComingUpNextTray
 
             // Persist setting
             this.app.SetIgnoreFreeOrFollowing(newVal);
+            this.app.SaveCurrentConfig();
 
             // Refresh display to reflect possible changed next/second meeting
             _ = this.RefreshAndUpdateUiAsync();
@@ -493,6 +496,7 @@ namespace ComingUpNextTray
 
             // Persist setting
             this.app.SetShowHoverWindow(newVal);
+            this.app.SaveCurrentConfig();
 
             if (newVal)
             {
@@ -564,6 +568,7 @@ namespace ComingUpNextTray
         private void OnResetHoverWindowPositionClick(object? sender, EventArgs e)
         {
             this.app.SetHoverWindowPosition(null, null);
+            this.app.SaveCurrentConfig();
 
             // If hover window visible, move it to default near cursor and resize to default
             if (this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
@@ -584,6 +589,7 @@ namespace ComingUpNextTray
 
             // Persist the top-left of the hover window
             this.app.SetHoverWindowPosition(this.hoverWindow.Location.X, this.hoverWindow.Location.Y);
+            this.app.SaveCurrentConfig();
         }
 
         private void UpdateOverlayIcon(DateTime now)

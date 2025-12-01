@@ -57,16 +57,27 @@ namespace ComingUpNextTray
 
             string input = this.textCalendarUrl.Text?.Trim() ?? string.Empty;
 
-            // Accept empty to clear URL.
-            this.app.SetCalendarUrl(input);
+            try
+            {
+                // Save all config values at once - this updates both memory and disk
+                // Note: SaveConfig updates in-memory values before writing to disk
+                this.app.SaveConfig(new Models.ConfigModel
+                {
+                    CalendarUrl = input,
+                    RefreshMinutes = this.app.GetRefreshMinutesForUi(),
+                    ShowHoverWindow = this.checkShowHoverWindow.Checked,
+                    IgnoreFreeOrFollowing = this.checkIgnoreFreeOrFollowing.Checked,
+                    HoverWindowLeft = this.app.GetHoverWindowLeftForUi(),
+                    HoverWindowTop = this.app.GetHoverWindowTopForUi(),
+                });
 
-            // Persist hover window enabled state
-            this.app.SetShowHoverWindow(this.checkShowHoverWindow.Checked);
-
-            // Persist ignore free/following state
-            this.app.SetIgnoreFreeOrFollowing(this.checkIgnoreFreeOrFollowing.Checked);
-            this.DialogResult = DialogResult.OK;
-            this.Close();
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            }
+            catch (InvalidOperationException ex)
+            {
+                System.Windows.Forms.MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+            }
         }
 
         private void OnCancelClick(object? sender, EventArgs e)

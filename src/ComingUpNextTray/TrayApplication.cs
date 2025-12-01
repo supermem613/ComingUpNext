@@ -378,9 +378,6 @@ namespace ComingUpNextTray
         internal void SetCalendarUrl(string? url)
         {
             this._calendarUrl = string.IsNullOrWhiteSpace(url) ? string.Empty : url.Trim();
-
-            // Save full config to preserve other values
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop });
         }
 
         /// <summary>Sets refresh interval minutes and persists config.</summary>
@@ -393,19 +390,17 @@ namespace ComingUpNextTray
             }
 
             this._refreshMinutes = minutes;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop });
         }
 
         /// <summary>Gets whether to show the hover window.</summary>
         /// <returns>True if hover window should be shown.</returns>
         internal bool GetShowHoverWindowForUi() => this._showHoverWindow;
 
-        /// <summary>Sets whether to show the hover window and persists config.</summary>
+        /// <summary>Sets whether to show the hover window.</summary>
         /// <param name="v">New show hover window value.</param>
         internal void SetShowHoverWindow(bool v)
         {
             this._showHoverWindow = v;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop });
         }
 
         /// <summary>
@@ -423,7 +418,7 @@ namespace ComingUpNextTray
         // Hover window size getters removed; sizes are not persisted.
 
         /// <summary>
-        /// Sets hover window position and persists config.
+        /// Sets hover window position.
         /// </summary>
         /// <param name="left">Left coordinate in screen pixels, or null to clear.</param>
         /// <param name="top">Top coordinate in screen pixels, or null to clear.</param>
@@ -431,19 +426,17 @@ namespace ComingUpNextTray
         {
             this._hoverWindowLeft = left;
             this._hoverWindowTop = top;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop });
         }
 
         /// <summary>Gets whether free/following meetings are ignored.</summary>
         /// <returns>True if such meetings are ignored; otherwise false.</returns>
         internal bool GetIgnoreFreeOrFollowingForUi() => this._ignoreFreeOrFollowing;
 
-        /// <summary>Sets whether free/following meetings are ignored and persists config.</summary>
+        /// <summary>Sets whether free/following meetings are ignored.</summary>
         /// <param name="v">New value indicating whether to ignore free/following meetings.</param>
         internal void SetIgnoreFreeOrFollowing(bool v)
         {
             this._ignoreFreeOrFollowing = v;
-            this.SaveConfig(new ConfigModel { CalendarUrl = this._calendarUrl, RefreshMinutes = this._refreshMinutes, ShowHoverWindow = this._showHoverWindow, IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing, HoverWindowLeft = this._hoverWindowLeft, HoverWindowTop = this._hoverWindowTop });
         }
 
         /// <summary>
@@ -461,9 +454,29 @@ namespace ComingUpNextTray
                     this._calendarUrl = config.CalendarUrl;
                 }
 
-                if (config.RefreshMinutes is int rm && rm > 0 && rm < 1440)
+                if (config.RefreshMinutes is int rm && rm > 0 && rm <= 1440)
                 {
                     this._refreshMinutes = rm;
+                }
+
+                if (config.ShowHoverWindow is bool sh)
+                {
+                    this._showHoverWindow = sh;
+                }
+
+                if (config.IgnoreFreeOrFollowing is bool iff)
+                {
+                    this._ignoreFreeOrFollowing = iff;
+                }
+
+                if (config.HoverWindowLeft is int hl)
+                {
+                    this._hoverWindowLeft = hl;
+                }
+
+                if (config.HoverWindowTop is int ht)
+                {
+                    this._hoverWindowTop = ht;
                 }
 
                 string json = JsonSerializer.Serialize(config, JsonSerializerOptionsCache.IndentedOptions);
@@ -474,6 +487,22 @@ namespace ComingUpNextTray
                 this._configErrorDetected = true;
                 throw new InvalidOperationException("Failed to save configuration.", ex);
             }
+        }
+
+        /// <summary>
+        /// Saves the current in-memory configuration to disk.
+        /// </summary>
+        internal void SaveCurrentConfig()
+        {
+            this.SaveConfig(new ConfigModel
+            {
+                CalendarUrl = this._calendarUrl,
+                RefreshMinutes = this._refreshMinutes,
+                ShowHoverWindow = this._showHoverWindow,
+                IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing,
+                HoverWindowLeft = this._hoverWindowLeft,
+                HoverWindowTop = this._hoverWindowTop,
+            });
         }
 
         private void LoadConfig()
