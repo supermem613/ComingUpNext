@@ -6,6 +6,7 @@ namespace ComingUpNextTray
     using System.Windows.Forms;
     using ComingUpNextTray.Models;
     using ComingUpNextTray.Services;
+    using Microsoft.Win32;
 
     /// <summary>
     /// Notification alert stages used by `TrayContext` to track which alerts have been shown.
@@ -247,6 +248,9 @@ namespace ComingUpNextTray
 
                 this.hoverWindow.Show();
             }
+
+            // Subscribe to session switch events to refresh calendar on workstation unlock.
+            SystemEvents.SessionSwitch += this.OnSessionSwitch;
         }
 
         /// <inheritdoc />
@@ -259,6 +263,9 @@ namespace ComingUpNextTray
 
             if (disposing)
             {
+                // Unsubscribe from session switch events.
+                SystemEvents.SessionSwitch -= this.OnSessionSwitch;
+
                 this.notifyIcon.Visible = false; // hide immediately
                 this.notifyIcon.Dispose();
                 this.nextMeetingDisplayItem.Dispose();
@@ -317,6 +324,15 @@ namespace ComingUpNextTray
             using SettingsForm form = new SettingsForm();
             form.Initialize(this.app);
             form.ShowDialog();
+        }
+
+        private async void OnSessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            // Refresh calendar data when the workstation is unlocked.
+            if (e.Reason == SessionSwitchReason.SessionUnlock)
+            {
+                await this.RefreshAndUpdateUiAsync().ConfigureAwait(true);
+            }
         }
 
         private void OnSettingsClick(object? sender, EventArgs e)
