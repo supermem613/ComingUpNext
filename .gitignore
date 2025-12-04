@@ -129,3 +129,4 @@ installer/*.wixobj
 installer/*.wixpdb
 installer/*.cab
 
+.vscode/**
