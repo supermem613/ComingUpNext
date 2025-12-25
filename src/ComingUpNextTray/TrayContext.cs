@@ -391,9 +391,10 @@ namespace ComingUpNextTray
                 {
                     // Show a one-time balloon if calendar URL exists but fetch failed.
                     string url = this.app.GetCalendarUrlForUi();
-                    if (!string.IsNullOrWhiteSpace(url))
+                    string? fetchErr = this.app.GetLastFetchErrorForUi();
+                    if (!string.IsNullOrWhiteSpace(url) && !string.IsNullOrWhiteSpace(fetchErr))
                     {
-                        this.ShowErrorBalloon();
+                        this.ShowErrorBalloon(fetchErr);
                     }
                 }
             }
@@ -404,12 +405,12 @@ namespace ComingUpNextTray
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "Using centralized UiText constants; localization pending.")]
-        private void ShowErrorBalloon()
+        private void ShowErrorBalloon(string message)
         {
             try
             {
-                this.notifyIcon.BalloonTipTitle = UiText.ConfigErrorTitle;
-                this.notifyIcon.BalloonTipText = UiText.ConfigErrorMessage;
+                this.notifyIcon.BalloonTipTitle = UiText.FetchErrorTitle;
+                this.notifyIcon.BalloonTipText = message;
                 this.notifyIcon.ShowBalloonTip(3000);
             }
             catch (System.ComponentModel.Win32Exception)

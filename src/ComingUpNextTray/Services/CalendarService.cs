@@ -183,6 +183,10 @@ namespace ComingUpNextTray.Services
                 {
                     hint = " Redirected location may require authentication.";
                 }
+                else if (code == 404)
+                {
+                    hint = " Calendar feed not found (404). Check the calendar URL.";
+                }
                 else if (code == 401 || code == 403)
                 {
                     hint = " Calendar feed appears to require authentication (401/403).";
@@ -236,6 +240,10 @@ namespace ComingUpNextTray.Services
                 if (code >= 300 && code < 400)
                 {
                     hint = " Redirected location may require authentication.";
+                }
+                else if (code == 404)
+                {
+                    hint = " Calendar feed not found (404). Check the calendar URL.";
                 }
                 else if (code == 401 || code == 403)
                 {

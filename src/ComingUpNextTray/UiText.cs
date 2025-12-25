@@ -65,6 +65,9 @@ namespace ComingUpNextTray
         /// <summary>Body text for configuration error message box.</summary>
         internal const string ConfigErrorMessage = "Config file malformed. Renamed to config.json.invalid.";
 
+        /// <summary>Title for calendar/network fetch error balloon tips.</summary>
+        internal const string FetchErrorTitle = "Calendar Error";
+
         /// <summary>Tooltip or UI text when no calendar configured.</summary>
         internal const string NoCalendarConfigured = "No calendar URL configured";
 
