@@ -295,6 +295,16 @@ namespace ComingUpNextTray.Services
                 return list;
             }
 
+            // Outlook/Exchange can represent a cancelled occurrence as a separate VEVENT containing
+            // UID + RECURRENCE-ID + STATUS:CANCELLED. Record those so we can remove any generated
+            // occurrences that match.
+            Dictionary<string, HashSet<DateTime>> cancelledStartsByUid = new (StringComparer.OrdinalIgnoreCase);
+
+            // Outlook/Exchange can also represent a modified/rescheduled occurrence as a separate VEVENT
+            // containing UID + RECURRENCE-ID (+ DTSTART/DTEND possibly different). In that case, the
+            // original recurrence instance at RECURRENCE-ID should be suppressed from expansion.
+            Dictionary<string, HashSet<DateTime>> overriddenStartsByUid = new (StringComparer.OrdinalIgnoreCase);
+
             // 1. Unfold lines (RFC5545 3.1) – continuation lines start with space or tab.
             StringBuilder unfolded = new ();
             using (StringReader reader = new (ics))
@@ -347,25 +357,67 @@ namespace ComingUpNextTray.Services
                 }
                 else if (line.Equals("END:VEVENT", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (current != null && current.StartTime != DateTime.MinValue)
+                    if (current != null)
                     {
-                        if (current.EndTime == DateTime.MinValue || current.EndTime <= current.StartTime)
+                        if (current.StartTime != DateTime.MinValue && (current.EndTime == DateTime.MinValue || current.EndTime <= current.StartTime))
                         {
                             current.EndTime = current.StartTime.AddHours(1);
                         }
 
-                        // Add base occurrence if in future (or today) and not excluded.
-                        if (!IsExcluded(current.StartTime, currentExDates))
+                        // Record cancelled/overridden instances even when DTSTART is missing.
+                        if (!string.IsNullOrWhiteSpace(current.Uid) && current.RecurrenceId.HasValue)
                         {
-                            list.Add(current);
+                            DateTime rid = current.RecurrenceId.Value;
+                            if (!overriddenStartsByUid.TryGetValue(current.Uid, out HashSet<DateTime>? overridden))
+                            {
+                                overridden = new HashSet<DateTime>();
+                                overriddenStartsByUid[current.Uid] = overridden;
+                            }
+
+                            overridden.Add(rid);
+
+                            if (current.IsCancelled)
+                            {
+                                if (!cancelledStartsByUid.TryGetValue(current.Uid, out HashSet<DateTime>? cancelled))
+                                {
+                                    cancelled = new HashSet<DateTime>();
+                                    cancelledStartsByUid[current.Uid] = cancelled;
+                                }
+
+                                cancelled.Add(rid);
+                            }
                         }
 
-                        // Expand simple weekly recurrences (RRULE FREQ=WEEKLY) to show upcoming meetings.
-                        if (currentRRule != null)
+                        if (current.IsCancelled)
                         {
-                            foreach (CalendarEntry extra in ExpandRecurrence(current, currentRRule, currentExDates, nowLocal))
+                            // Treat as cancellation marker only; do not emit as a meeting.
+                            DateTime cancelledStart = current.RecurrenceId ?? current.StartTime;
+                            if (!string.IsNullOrWhiteSpace(current.Uid) && cancelledStart != DateTime.MinValue)
                             {
-                                list.Add(extra);
+                                if (!cancelledStartsByUid.TryGetValue(current.Uid, out HashSet<DateTime>? set))
+                                {
+                                    set = new HashSet<DateTime>();
+                                    cancelledStartsByUid[current.Uid] = set;
+                                }
+
+                                set.Add(cancelledStart);
+                            }
+                        }
+                        else if (current.StartTime != DateTime.MinValue)
+                        {
+                            // Add base occurrence and expand (when supported).
+                            if (!IsExcluded(current.StartTime, currentExDates))
+                            {
+                                list.Add(current);
+                            }
+
+                            // Expand simple weekly recurrences (RRULE FREQ=WEEKLY) to show upcoming meetings.
+                            if (currentRRule != null)
+                            {
+                                foreach (CalendarEntry extra in ExpandRecurrence(current, currentRRule, currentExDates, nowLocal))
+                                {
+                                    list.Add(extra);
+                                }
                             }
                         }
                     }
@@ -393,6 +445,17 @@ namespace ComingUpNextTray.Services
 
                     switch (key)
                     {
+                        case "UID":
+                            current.Uid = value;
+                            break;
+                        case "RECURRENCE-ID":
+                            DateTime rid = ParseDate(value, tzid);
+                            if (rid != DateTime.MinValue)
+                            {
+                                current.RecurrenceId = rid;
+                            }
+
+                            break;
                         case "SUMMARY":
                             current.Title = UnescapeIcsText(value);
 
@@ -420,6 +483,12 @@ namespace ComingUpNextTray.Services
                             if (string.Equals(value, "FREE", StringComparison.OrdinalIgnoreCase))
                             {
                                 current.IsFreeOrFollowing = true;
+                            }
+
+                            // Cancelled events/occurrences should never be surfaced.
+                            if (string.Equals(value, "CANCELLED", StringComparison.OrdinalIgnoreCase))
+                            {
+                                current.IsCancelled = true;
                             }
 
                             break;
@@ -542,9 +611,29 @@ namespace ComingUpNextTray.Services
             }
 
             // Return ordered, distinct by StartTime+Title (avoid duplicates if RRULE created original again)
-            return list
+            IEnumerable<CalendarEntry> filtered = list;
+            if (cancelledStartsByUid.Count > 0)
+            {
+                filtered = filtered.Where(e =>
+                    string.IsNullOrWhiteSpace(e.Uid) ||
+                    !cancelledStartsByUid.TryGetValue(e.Uid!, out HashSet<DateTime>? cancelledStarts) ||
+                    !cancelledStarts.Contains(e.StartTime));
+            }
+
+            if (overriddenStartsByUid.Count > 0)
+            {
+                // Suppress the original generated instance when there is an override VEVENT.
+                // Keep the override VEVENT itself (it has RecurrenceId set).
+                filtered = filtered.Where(e =>
+                    e.RecurrenceId.HasValue ||
+                    string.IsNullOrWhiteSpace(e.Uid) ||
+                    !overriddenStartsByUid.TryGetValue(e.Uid!, out HashSet<DateTime>? overriddenStarts) ||
+                    !overriddenStarts.Contains(e.StartTime));
+            }
+
+            return filtered
                 .OrderBy(e => e.StartTime)
-                .GroupBy(e => (e.StartTime, e.Title))
+                .GroupBy(e => (e.StartTime, e.Title, e.Uid))
                 .Select(g => g.First())
                 .ToList();
         }
@@ -833,6 +922,7 @@ namespace ComingUpNextTray.Services
 
                     yield return new CalendarEntry
                     {
+                        Uid = prototype.Uid,
                         Title = prototype.Title,
                         StartTime = candidate,
                         EndTime = candidate + (prototype.EndTime - prototype.StartTime),

@@ -208,5 +208,139 @@ namespace ComingUpNextTray.Tests {
             var dec12 = result.FirstOrDefault(e => e.StartTime.Date == new DateTime(2025, 12, 12));
             Assert.NotNull(dec12);
         }
+
+        [Fact]
+        public void ParseIcs_CancelledRecurrenceId_ExcludesCancelledOccurrence()
+        {
+            // Outlook/Exchange commonly emits cancelled single occurrences as a separate VEVENT:
+            // UID + RECURRENCE-ID + STATUS:CANCELLED.
+            // Ensure we do not surface that instance as the next meeting.
+            string ics =
+                "BEGIN:VCALENDAR\n" +
+                "BEGIN:VEVENT\n" +
+                "UID:exercise-pinny\n" +
+                "SUMMARY:Exercise @ Pinny\n" +
+                "DTSTART:20251219T180000Z\n" +
+                "DTEND:20251219T190000Z\n" +
+                "RRULE:FREQ=WEEKLY;BYDAY=FR;UNTIL=20260131T235900Z\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT\n" +
+                "BEGIN:VEVENT\n" +
+                "UID:exercise-pinny\n" +
+                "SUMMARY:Exercise @ Pinny\n" +
+                "RECURRENCE-ID:20251226T180000Z\n" +
+                "DTSTART:20251226T180000Z\n" +
+                "DTEND:20251226T190000Z\n" +
+                "STATUS:CANCELLED\n" +
+                "END:VEVENT\n" +
+                "BEGIN:VEVENT\n" +
+                "UID:team-sync\n" +
+                "SUMMARY:Team Sync\n" +
+                "DTSTART:20251226T190000Z\n" +
+                "DTEND:20251226T193000Z\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT\n" +
+                "END:VCALENDAR\n";
+
+            DateTime now = new DateTime(2025, 12, 26, 16, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> entries = CalendarService.ParseIcs(ics, now);
+
+            DateTime cancelledUtc = new DateTime(2025, 12, 26, 18, 0, 0, DateTimeKind.Utc);
+            Assert.DoesNotContain(entries, e =>
+                e.Title == "Exercise @ Pinny" &&
+                e.StartTime.ToUniversalTime() == cancelledUtc);
+
+            // And ensure the next meeting is the later confirmed meeting.
+            Models.CalendarEntry? next = NextMeetingSelector.GetNextMeeting(entries, now, ignoreFreeOrFollowing: false);
+            Assert.NotNull(next);
+            Assert.Equal("Team Sync", next!.Title);
+        }
+
+        [Fact]
+        public void ParseIcs_Exdate_ExcludesCancelledOccurrence()
+        {
+            // Some feeds represent a cancelled single occurrence via EXDATE on the master VEVENT
+            // rather than emitting a separate STATUS:CANCELLED VEVENT.
+            string ics =
+                "BEGIN:VCALENDAR\n" +
+                "BEGIN:VEVENT\n" +
+                "UID:exercise-pinny\n" +
+                "SUMMARY:Exercise @ Pinny\n" +
+                "DTSTART:20251219T180000Z\n" +
+                "DTEND:20251219T190000Z\n" +
+                "RRULE:FREQ=WEEKLY;BYDAY=FR;UNTIL=20260131T235900Z\n" +
+                "EXDATE:20251226T180000Z\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT\n" +
+                "BEGIN:VEVENT\n" +
+                "UID:team-sync\n" +
+                "SUMMARY:Team Sync\n" +
+                "DTSTART:20251226T190000Z\n" +
+                "DTEND:20251226T193000Z\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT\n" +
+                "END:VCALENDAR\n";
+
+            DateTime now = new DateTime(2025, 12, 26, 16, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> entries = CalendarService.ParseIcs(ics, now);
+
+            DateTime excludedUtc = new DateTime(2025, 12, 26, 18, 0, 0, DateTimeKind.Utc);
+            Assert.DoesNotContain(entries, e =>
+                e.Title == "Exercise @ Pinny" &&
+                e.StartTime.ToUniversalTime() == excludedUtc);
+
+            Models.CalendarEntry? next = NextMeetingSelector.GetNextMeeting(entries, now, ignoreFreeOrFollowing: false);
+            Assert.NotNull(next);
+            Assert.Equal("Team Sync", next!.Title);
+        }
+
+        [Fact]
+        public void ParseIcs_RecurrenceIdOverride_SuppressesOriginalInstance()
+        {
+            // Outlook/Exchange can emit a modified occurrence as a separate VEVENT with RECURRENCE-ID.
+            // The generated instance at the RECURRENCE-ID should be suppressed.
+            string ics =
+                "BEGIN:VCALENDAR\n" +
+                "BEGIN:VEVENT\n" +
+                "UID:series-uid\n" +
+                "SUMMARY:Exercise @ Pinny\n" +
+                "DTSTART:20251219T180000Z\n" +
+                "DTEND:20251219T190000Z\n" +
+                "RRULE:FREQ=WEEKLY;BYDAY=FR;UNTIL=20260131T235900Z\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT\n" +
+                // Override the 12/26 occurrence and move it earlier (12/25)
+                "BEGIN:VEVENT\n" +
+                "UID:series-uid\n" +
+                "RECURRENCE-ID:20251226T180000Z\n" +
+                "SUMMARY:Exercise @ Pinny\n" +
+                "DTSTART:20251225T160000Z\n" +
+                "DTEND:20251225T170000Z\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT\n" +
+                "BEGIN:VEVENT\n" +
+                "UID:team-sync\n" +
+                "SUMMARY:Team Sync\n" +
+                "DTSTART:20251226T190000Z\n" +
+                "DTEND:20251226T193000Z\n" +
+                "STATUS:CONFIRMED\n" +
+                "END:VEVENT\n" +
+                "END:VCALENDAR\n";
+
+            DateTime now = new DateTime(2025, 12, 26, 16, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> entries = CalendarService.ParseIcs(ics, now);
+
+            // The original (generated) 12/26 18:00Z should not appear.
+            DateTime originalUtc = new DateTime(2025, 12, 26, 18, 0, 0, DateTimeKind.Utc);
+            Assert.DoesNotContain(entries, e =>
+                e.RecurrenceId is null &&
+                e.Title == "Exercise @ Pinny" &&
+                e.StartTime.ToUniversalTime() == originalUtc);
+
+            // Ensure the next meeting is Team Sync.
+            Models.CalendarEntry? next = NextMeetingSelector.GetNextMeeting(entries, now, ignoreFreeOrFollowing: false);
+            Assert.NotNull(next);
+            Assert.Equal("Team Sync", next!.Title);
+        }
     }
 }

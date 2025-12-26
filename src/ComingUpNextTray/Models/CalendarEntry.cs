@@ -6,6 +6,23 @@ namespace ComingUpNextTray.Models
     internal sealed class CalendarEntry
     {
         /// <summary>
+        /// Gets or sets the event UID (UID) when present. Used to correlate recurrence exceptions/cancellations.
+        /// </summary>
+        public string? Uid { get; set; }
+
+        /// <summary>
+        /// Gets or sets the recurrence instance identifier (RECURRENCE-ID) when present.
+        /// For Outlook/Exchange cancellations this often denotes the cancelled instance start.
+        /// </summary>
+        public DateTime? RecurrenceId { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the VEVENT represents a cancelled event/instance (STATUS:CANCELLED).
+        /// Cancelled entries should not be shown as upcoming meetings.
+        /// </summary>
+        public bool IsCancelled { get; set; }
+
+        /// <summary>
         /// Gets or sets the human-readable title (SUMMARY) of the event.
         /// </summary>
         public string Title { get; set; } = string.Empty;
