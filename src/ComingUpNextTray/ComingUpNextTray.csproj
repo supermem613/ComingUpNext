@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableUnsafeBlocks>false</EnableUnsafeBlocks>
     <!-- Single source of truth for version used by publish and MSI -->
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <ApplicationIcon>Resources\ComingUpNext.ico</ApplicationIcon>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\ComingUpNextTray.xml</DocumentationFile>
   </PropertyGroup>
