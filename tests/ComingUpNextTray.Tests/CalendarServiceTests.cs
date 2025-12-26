@@ -54,7 +54,62 @@ namespace ComingUpNextTray.Tests {
             IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
             Models.CalendarEntry evt = Assert.Single(result);
             Assert.Equal(new DateTime(2025, 1, 2), evt.StartTime.Date);
-            Assert.Equal(1, (evt.EndTime - evt.StartTime).Hours); // default duration
+            Assert.Equal(TimeSpan.FromDays(1), evt.EndTime - evt.StartTime); // all-day default duration
+        }
+
+        [Fact]
+        public void ParseIcs_AllDayEvent_ValueDate_DefaultsToOneDay()
+        {
+            string ics = "BEGIN:VEVENT\nSUMMARY:All Day ValueDate\nDTSTART;VALUE=DATE:20250102\nEND:VEVENT";
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
+            Models.CalendarEntry evt = Assert.Single(result);
+            Assert.Equal(new DateTime(2025, 1, 2), evt.StartTime.Date);
+            Assert.Equal(TimeSpan.FromDays(1), evt.EndTime - evt.StartTime);
+        }
+
+        [Fact]
+        public void ParseIcs_Rdate_AddsExplicitAdditionalOccurrences()
+        {
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "UID:rdate-series\n" +
+                "SUMMARY:RDATE Series\n" +
+                "DTSTART:20260101T100000Z\n" +
+                "DTEND:20260101T103000Z\n" +
+                "RDATE:20260103T100000Z,20260110T100000Z\n" +
+                "END:VEVENT";
+
+            DateTime now = new DateTime(2025, 12, 31, 0, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            Assert.Equal(3, result.Count);
+            DateTime[] startsUtc = result.Select(e => e.StartTime.ToUniversalTime()).OrderBy(d => d).ToArray();
+            Assert.Equal(new DateTime(2026, 1, 1, 10, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startsUtc[0], DateTimeKind.Utc));
+            Assert.Equal(new DateTime(2026, 1, 3, 10, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startsUtc[1], DateTimeKind.Utc));
+            Assert.Equal(new DateTime(2026, 1, 10, 10, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startsUtc[2], DateTimeKind.Utc));
+        }
+
+        [Fact]
+        public void ParseIcs_FoldedRrule_IsParsed()
+        {
+            // RRULE split across lines (folded). Continuation line begins with one space.
+            // After unfolding it becomes: RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=2
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "UID:fold-rrule\n" +
+                "SUMMARY:Folded RRULE\n" +
+                "DTSTART:20260105T100000Z\n" + // Monday
+                "DTEND:20260105T103000Z\n" +
+                "RRULE:FREQ=WEEKLY;BYDAY=MO;\n" +
+                " COUNT=2\n" +
+                "END:VEVENT";
+
+            DateTime now = new DateTime(2025, 12, 31, 0, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            // COUNT=2 total occurrences including DTSTART
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, e => e.StartTime.ToUniversalTime() == new DateTime(2026, 1, 12, 10, 0, 0, DateTimeKind.Utc));
         }
 
         [Fact]
@@ -341,6 +396,85 @@ namespace ComingUpNextTray.Tests {
             Models.CalendarEntry? next = NextMeetingSelector.GetNextMeeting(entries, now, ignoreFreeOrFollowing: false);
             Assert.NotNull(next);
             Assert.Equal("Team Sync", next!.Title);
+        }
+
+        [Fact]
+        public void ParseIcs_ParsesDateTimeWithUtcOffset()
+        {
+            // Common ICS format includes numeric offsets (no 'Z')
+            // 09:00 at -05:00 should be 14:00Z.
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "SUMMARY:Offset Meeting\n" +
+                "DTSTART:20250101T090000-0500\n" +
+                "DTEND:20250101T093000-0500\n" +
+                "END:VEVENT";
+
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
+            Models.CalendarEntry evt = Assert.Single(result);
+
+            DateTime startUtc = evt.StartTime.ToUniversalTime();
+            Assert.Equal(new DateTime(2025, 1, 1, 14, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startUtc, DateTimeKind.Utc));
+        }
+
+        [Fact]
+        public void ParseIcs_ParsesQuotedTzid()
+        {
+            // Some generators quote TZID values, especially when they include spaces.
+            // 09:00 Pacific on Jan 15, 2025 should be 17:00Z.
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "SUMMARY:Quoted TZID\n" +
+                "DTSTART;TZID=\"Pacific Standard Time\":20250115T090000\n" +
+                "DTEND;TZID=\"Pacific Standard Time\":20250115T093000\n" +
+                "END:VEVENT";
+
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
+            Models.CalendarEntry evt = Assert.Single(result);
+            DateTime startUtc = evt.StartTime.ToUniversalTime();
+            Assert.Equal(new DateTime(2025, 1, 15, 17, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startUtc, DateTimeKind.Utc));
+        }
+
+        [Fact]
+        public void ParseIcs_MapsIanaTzidToWindows()
+        {
+            // Many feeds emit IANA tzids. On Windows we map common ones to Windows IDs.
+            // 09:00 in America/Los_Angeles on Jan 15, 2025 should be 17:00Z.
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "SUMMARY:IANA TZID\n" +
+                "DTSTART;TZID=America/Los_Angeles:20250115T090000\n" +
+                "DTEND;TZID=America/Los_Angeles:20250115T093000\n" +
+                "END:VEVENT";
+
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics);
+            Models.CalendarEntry evt = Assert.Single(result);
+            DateTime startUtc = evt.StartTime.ToUniversalTime();
+            Assert.Equal(new DateTime(2025, 1, 15, 17, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startUtc, DateTimeKind.Utc));
+        }
+
+        [Fact]
+        public void ParseIcs_RRULECount_ExpandsToExpectedTotalOccurrences()
+        {
+            // COUNT is total occurrences including DTSTART.
+            string ics =
+                "BEGIN:VEVENT\n" +
+                "UID:count-series\n" +
+                "SUMMARY:Counted Series\n" +
+                "DTSTART:20260105T100000Z\n" +
+                "DTEND:20260105T103000Z\n" +
+                "RRULE:FREQ=WEEKLY;COUNT=3;BYDAY=MO\n" +
+                "END:VEVENT";
+
+            DateTime now = new DateTime(2025, 12, 31, 0, 0, 0, DateTimeKind.Utc).ToLocalTime();
+            IReadOnlyList<Models.CalendarEntry> result = CalendarService.ParseIcs(ics, now);
+
+            Assert.Equal(3, result.Count);
+
+            DateTime[] startsUtc = result.Select(e => e.StartTime.ToUniversalTime()).OrderBy(d => d).ToArray();
+            Assert.Equal(new DateTime(2026, 1, 5, 10, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startsUtc[0], DateTimeKind.Utc));
+            Assert.Equal(new DateTime(2026, 1, 12, 10, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startsUtc[1], DateTimeKind.Utc));
+            Assert.Equal(new DateTime(2026, 1, 19, 10, 0, 0, DateTimeKind.Utc), DateTime.SpecifyKind(startsUtc[2], DateTimeKind.Utc));
         }
     }
 }

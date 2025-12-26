@@ -1,6 +1,7 @@
 namespace ComingUpNextTray.Services
 {
     using System.Globalization;
+    using System.Net.Http.Headers;
     using System.Security.Cryptography;
     using System.Text;
     using ComingUpNextTray.Models;
@@ -77,7 +78,7 @@ namespace ComingUpNextTray.Services
                 }
 
                 byte[] bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-                string text = Encoding.UTF8.GetString(bytes);
+                string text = DecodeIcs(bytes, resp.Content.Headers);
                 return ParseIcs(text);
             }
             catch (HttpRequestException)
@@ -148,7 +149,7 @@ namespace ComingUpNextTray.Services
                 // Update any validators the server did provide (may be null)
                 this.lastEtag = resp.Headers.ETag?.ToString();
                 this.lastModified = resp.Content.Headers.LastModified;
-                string text = Encoding.UTF8.GetString(bytes);
+                string text = DecodeIcs(bytes, resp.Content.Headers);
                 return ParseIcs(text);
             }
             catch (HttpRequestException)
@@ -200,7 +201,7 @@ namespace ComingUpNextTray.Services
             }
 
             byte[] bytes = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
-            string text = Encoding.UTF8.GetString(bytes);
+            string text = DecodeIcs(bytes, resp.Content.Headers);
             return ParseIcs(text);
         }
 
@@ -315,7 +316,16 @@ namespace ComingUpNextTray.Services
                 {
                     if (line.StartsWith(' ') || line.StartsWith('\t'))
                     {
-                        prev += line.TrimStart();
+                        // RFC 5545 unfolding: remove CRLF + *one* leading whitespace.
+                        // Preserve any additional indentation that may be significant for some fields.
+                        if (prev == null)
+                        {
+                            prev = line.Length > 1 ? line[1..] : string.Empty;
+                        }
+                        else
+                        {
+                            prev += line.Length > 1 ? line[1..] : string.Empty;
+                        }
                     }
                     else
                     {
@@ -338,6 +348,8 @@ namespace ComingUpNextTray.Services
             CalendarEntry? current = null;
             string? currentRRule = null; // Raw RRULE line (after colon)
             List<(DateTime dt, string? tz)> currentExDates = new (); // EXDATE values
+            List<(DateTime dt, bool isDateOnly)> currentRDates = new (); // RDATE values
+            bool currentStartIsDateOnly = false;
 
             DateTime nowLocal = now ?? DateTime.Now; // For recurrence expansion cut-off. Allow injecting 'now' for tests.
 
@@ -354,6 +366,8 @@ namespace ComingUpNextTray.Services
                     current = new CalendarEntry { Title = "(No Title)", StartTime = DateTime.MinValue, EndTime = DateTime.MinValue };
                     currentRRule = null;
                     currentExDates.Clear();
+                    currentRDates.Clear();
+                    currentStartIsDateOnly = false;
                 }
                 else if (line.Equals("END:VEVENT", StringComparison.OrdinalIgnoreCase))
                 {
@@ -361,7 +375,10 @@ namespace ComingUpNextTray.Services
                     {
                         if (current.StartTime != DateTime.MinValue && (current.EndTime == DateTime.MinValue || current.EndTime <= current.StartTime))
                         {
-                            current.EndTime = current.StartTime.AddHours(1);
+                            // For DATE-only (all-day) events, default duration to one day; otherwise one hour.
+                            current.EndTime = currentStartIsDateOnly
+                                ? current.StartTime.AddDays(1)
+                                : current.StartTime.AddHours(1);
                         }
 
                         // Record cancelled/overridden instances even when DTSTART is missing.
@@ -419,12 +436,59 @@ namespace ComingUpNextTray.Services
                                     list.Add(extra);
                                 }
                             }
+
+                            // RDATE adds explicit additional instances (RFC 5545). Treat them as additional occurrences
+                            // using the prototype's duration when available.
+                            if (currentRDates.Count > 0)
+                            {
+                                TimeSpan duration = (current.EndTime > current.StartTime)
+                                    ? current.EndTime - current.StartTime
+                                    : (currentStartIsDateOnly ? TimeSpan.FromDays(1) : TimeSpan.FromHours(1));
+
+                                foreach ((DateTime dt, bool isDateOnly) r in currentRDates)
+                                {
+                                    DateTime start = r.dt;
+                                    if (start == DateTime.MinValue)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (start == current.StartTime)
+                                    {
+                                        continue; // already added as the base DTSTART occurrence
+                                    }
+
+                                    if (start < nowLocal)
+                                    {
+                                        continue;
+                                    }
+
+                                    if (IsExcluded(start, currentExDates))
+                                    {
+                                        continue;
+                                    }
+
+                                    TimeSpan rDuration = r.isDateOnly ? TimeSpan.FromDays(1) : duration;
+
+                                    list.Add(new CalendarEntry
+                                    {
+                                        Uid = current.Uid,
+                                        Title = current.Title,
+                                        StartTime = start,
+                                        EndTime = start + rDuration,
+                                        MeetingUrl = current.MeetingUrl,
+                                        IsFreeOrFollowing = current.IsFreeOrFollowing,
+                                    });
+                                }
+                            }
                         }
                     }
 
                     current = null;
                     currentRRule = null;
                     currentExDates.Clear();
+                    currentRDates.Clear();
+                    currentStartIsDateOnly = false;
                 }
                 else if (current != null)
                 {
@@ -442,6 +506,13 @@ namespace ComingUpNextTray.Services
                     string? tzid = keySegments.Skip(1)
                         .Select(seg => seg.StartsWith("TZID=", StringComparison.OrdinalIgnoreCase) ? seg[5..] : null)
                         .FirstOrDefault(seg => seg != null);
+
+                    string? valueType = keySegments.Skip(1)
+                        .Select(seg => seg.StartsWith("VALUE=", StringComparison.OrdinalIgnoreCase) ? seg[6..] : null)
+                        .FirstOrDefault(seg => seg != null);
+
+                    tzid = NormalizeTzid(tzid);
+                    bool isDateOnly = string.Equals(valueType, "DATE", StringComparison.OrdinalIgnoreCase) || (value.Length == 8 && value.IndexOf('T', StringComparison.Ordinal) < 0);
 
                     switch (key)
                     {
@@ -513,6 +584,7 @@ namespace ComingUpNextTray.Services
                             if (start != DateTime.MinValue)
                             {
                                 current.StartTime = start;
+                                currentStartIsDateOnly = isDateOnly;
                             }
 
                             break;
@@ -532,6 +604,19 @@ namespace ComingUpNextTray.Services
                                 if (ex != DateTime.MinValue)
                                 {
                                     currentExDates.Add((ex, tzid));
+                                }
+                            }
+
+                            break;
+                        case "RDATE":
+                            // Comma separated date-times/dates; add explicit instances.
+                            foreach (string part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                            {
+                                DateTime rd = ParseDate(part, tzid);
+                                if (rd != DateTime.MinValue)
+                                {
+                                    bool rdIsDateOnly = string.Equals(valueType, "DATE", StringComparison.OrdinalIgnoreCase) || (part.Length == 8 && part.IndexOf('T', StringComparison.Ordinal) < 0);
+                                    currentRDates.Add((rd, rdIsDateOnly));
                                 }
                             }
 
@@ -737,17 +822,25 @@ namespace ComingUpNextTray.Services
         {
             try
             {
+                string v = val.Trim();
+
+                // Prefer explicit UTC or offset timestamps when present; TZID (if any) should not override those.
+                if (TryParseUtcOrOffsetDateTime(v, out DateTime localFromOffset))
+                {
+                    return localFromOffset;
+                }
+
                 if (!string.IsNullOrWhiteSpace(tzid))
                 {
                     // Attempt timezone-aware parsing first (value expected as local wall clock time of tzid).
-                    if (TryParseLocalDateTime(val, out DateTime naive))
+                    if (TryParseLocalDateTime(v, out DateTime naive))
                     {
                         DateTime unspecified = DateTime.SpecifyKind(naive, DateTimeKind.Unspecified);
                         try
                         {
                             TimeZoneInfo tz = TimeZoneInfo.FindSystemTimeZoneById(tzid);
                             DateTime converted = TimeZoneInfo.ConvertTime(unspecified, tz, TimeZoneInfo.Local);
-                            return converted;
+                            return DateTime.SpecifyKind(converted, DateTimeKind.Local);
                         }
                         catch (TimeZoneNotFoundException)
                         {
@@ -759,25 +852,15 @@ namespace ComingUpNextTray.Services
                     }
                 }
 
-                if (val.EndsWith('Z'))
-                {
-                    // UTC time
-                    string core = val.TrimEnd('Z');
-                    if (DateTime.TryParseExact(core, "yyyyMMdd'T'HHmmss", null, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime utc))
-                    {
-                        return utc.ToLocalTime();
-                    }
-                }
-
-                if (val.Length == 8 && DateTime.TryParseExact(val, "yyyyMMdd", null, DateTimeStyles.None, out DateTime dateOnly))
+                if (v.Length == 8 && DateTime.TryParseExact(v, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime dateOnly))
                 {
                     // treat all-day as local midnight
-                    return dateOnly;
+                    return DateTime.SpecifyKind(dateOnly, DateTimeKind.Local);
                 }
 
-                if (DateTime.TryParseExact(val, "yyyyMMdd'T'HHmmss", null, DateTimeStyles.AssumeLocal, out DateTime local))
+                if (DateTime.TryParseExact(v, "yyyyMMdd'T'HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime local))
                 {
-                    return local;
+                    return DateTime.SpecifyKind(local, DateTimeKind.Local);
                 }
             }
             catch (FormatException)
@@ -789,6 +872,40 @@ namespace ComingUpNextTray.Services
             }
 
             return DateTime.MinValue;
+        }
+
+        private static bool TryParseUtcOrOffsetDateTime(string val, out DateTime local)
+        {
+            // UTC format: 20240122T130000Z
+            if (val.Length == 16 && (val.EndsWith('Z') || val.EndsWith('z')))
+            {
+                string core = val[..^1];
+                if (DateTime.TryParseExact(core, "yyyyMMdd'T'HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime utc))
+                {
+                    local = DateTime.SpecifyKind(utc.ToLocalTime(), DateTimeKind.Local);
+                    return true;
+                }
+            }
+
+            // Offset format: 20240122T130000-0500 (no colon)
+            // Normalize to ISO offset with colon so DateTimeOffset can parse.
+            if (val.Length == 20)
+            {
+                char sign = val[15];
+                if ((sign == '+' || sign == '-') &&
+                    char.IsDigit(val[16]) && char.IsDigit(val[17]) && char.IsDigit(val[18]) && char.IsDigit(val[19]))
+                {
+                    string normalized = val[..18] + ":" + val[18..]; // -0500 -> -05:00
+                    if (DateTimeOffset.TryParseExact(normalized, "yyyyMMdd'T'HHmmsszzz", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTimeOffset dto))
+                    {
+                        local = DateTime.SpecifyKind(dto.ToLocalTime().DateTime, DateTimeKind.Local);
+                        return true;
+                    }
+                }
+            }
+
+            local = default;
+            return false;
         }
 
         private static bool TryParseLocalDateTime(string val, out DateTime dt)
@@ -861,7 +978,18 @@ namespace ComingUpNextTray.Services
                 DateTime untilParsed = ParseDate(untilRaw);
                 if (untilParsed != DateTime.MinValue)
                 {
-                    untilLimit = untilParsed.ToLocalTime();
+                    untilLimit = untilParsed;
+                }
+            }
+
+            int? remainingCount = null;
+            if (parts.TryGetValue("COUNT", out string? countRaw) && int.TryParse(countRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int countVal) && countVal > 0)
+            {
+                // COUNT is total occurrences, including the DTSTART occurrence already emitted in ParseIcs.
+                remainingCount = Math.Max(0, countVal - 1);
+                if (remainingCount == 0)
+                {
+                    yield break;
                 }
             }
 
@@ -929,6 +1057,15 @@ namespace ComingUpNextTray.Services
                         MeetingUrl = prototype.MeetingUrl,
                         IsFreeOrFollowing = prototype.IsFreeOrFollowing,
                     };
+
+                    if (remainingCount.HasValue)
+                    {
+                        remainingCount--;
+                        if (remainingCount <= 0)
+                        {
+                            yield break;
+                        }
+                    }
                 }
 
                 generationStart = generationStart.AddDays(7 * interval);
@@ -957,6 +1094,87 @@ namespace ComingUpNextTray.Services
             {
                 entry.MeetingUrl = uri;
             }
+        }
+
+        private static string? NormalizeTzid(string? tzid)
+        {
+            if (string.IsNullOrWhiteSpace(tzid))
+            {
+                return null;
+            }
+
+            string trimmed = tzid.Trim().Trim('"');
+            if (TryMapIanaToWindowsTimeZoneId(trimmed, out string? mapped))
+            {
+                return mapped;
+            }
+
+            return trimmed;
+        }
+
+        private static bool TryMapIanaToWindowsTimeZoneId(string iana, out string? windows)
+        {
+            // This is a minimal mapping table intended to cover the most common calendar feeds.
+            // Many ICS sources emit IANA IDs (e.g. Google), while Windows uses different IDs.
+            windows = iana switch
+            {
+                "Etc/UTC" => "UTC",
+                "Etc/GMT" => "UTC",
+                "UTC" => "UTC",
+                "GMT" => "UTC",
+                "America/Los_Angeles" => "Pacific Standard Time",
+                "America/Vancouver" => "Pacific Standard Time",
+                "America/New_York" => "Eastern Standard Time",
+                "America/Toronto" => "Eastern Standard Time",
+                "America/Chicago" => "Central Standard Time",
+                "America/Denver" => "Mountain Standard Time",
+                "Europe/London" => "GMT Standard Time",
+                "Europe/Dublin" => "GMT Standard Time",
+                "Europe/Paris" => "Romance Standard Time",
+                "Europe/Berlin" => "W. Europe Standard Time",
+                "Europe/Amsterdam" => "W. Europe Standard Time",
+                _ => null,
+            };
+
+            return windows != null;
+        }
+
+        private static string DecodeIcs(byte[] bytes, HttpContentHeaders headers)
+        {
+            // Prefer an explicit charset when provided.
+            string? charset = headers.ContentType?.CharSet;
+            if (!string.IsNullOrWhiteSpace(charset))
+            {
+                try
+                {
+                    Encoding enc = Encoding.GetEncoding(charset.Trim());
+                    return enc.GetString(bytes);
+                }
+                catch (ArgumentException)
+                {
+                }
+            }
+
+            // BOM detection fallback
+            if (bytes.Length >= 2)
+            {
+                if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
+                {
+                    return Encoding.UTF8.GetString(bytes);
+                }
+
+                if (bytes[0] == 0xFF && bytes[1] == 0xFE)
+                {
+                    return Encoding.Unicode.GetString(bytes);
+                }
+
+                if (bytes[0] == 0xFE && bytes[1] == 0xFF)
+                {
+                    return Encoding.BigEndianUnicode.GetString(bytes);
+                }
+            }
+
+            return Encoding.UTF8.GetString(bytes);
         }
 
         // Unescape ICS TEXT per RFC 5545 section 3.3.11: backslash escapes for COMMA, SEMICOLON, BACKSLASH and NEWLINE

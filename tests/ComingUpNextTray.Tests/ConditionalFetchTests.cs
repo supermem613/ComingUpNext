@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using System.Net.Http;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ComingUpNextTray.Services;
@@ -143,6 +144,24 @@ namespace ComingUpNextTray.Tests
             Assert.Single(first);
             Assert.Single(second);
             Assert.NotEqual(first[0].StartTime, second[0].StartTime);
+        }
+
+        [Fact]
+        public async Task FetchIfChanged_DecodesCharset_WhenProvided()
+        {
+            // Ensure CalendarService does not assume UTF-8 for ICS payloads.
+            // Use Latin-1 so the byte sequence differs from UTF-8 and would corrupt if decoded incorrectly.
+            const string ics = "BEGIN:VEVENT\nSUMMARY:Résumé\nDTSTART:20250101T130000Z\nEND:VEVENT";
+
+            using StubHandler handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(ics, Encoding.Latin1, "text/calendar")
+            });
+
+            using CalendarService service = new CalendarService(handler);
+            IReadOnlyList<ComingUpNextTray.Models.CalendarEntry> entries = await service.FetchIfChangedAsync(new Uri("https://example.com/calendar.ics"));
+            ComingUpNextTray.Models.CalendarEntry entry = Assert.Single(entries);
+            Assert.Equal("Résumé", entry.Title);
         }
     }
 }
