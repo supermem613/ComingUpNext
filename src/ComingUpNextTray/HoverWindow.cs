@@ -3,6 +3,7 @@ namespace ComingUpNextTray
     using System;
     using System.Drawing;
     using System.Globalization;
+    using System.Runtime.InteropServices;
     using System.Windows.Forms;
     using ComingUpNextTray.Models;
 
@@ -12,6 +13,13 @@ namespace ComingUpNextTray
     /// </summary>
     internal sealed class HoverWindow : Form
     {
+        private const uint SwpNoMove = 0x0002;
+        private const uint SwpNoSize = 0x0001;
+        private const uint SwpNoActivate = 0x0010;
+        private const int WsExTopmost = 0x00000008;
+
+        private static readonly IntPtr HwndTopmost = new (-1);
+
         private readonly Label titleLabel;
         private readonly Label timeLabel;
         private Point dragStart;
@@ -69,6 +77,17 @@ namespace ComingUpNextTray
             this.MouseDoubleClick += this.OnMouseDoubleClick_OpenMeeting;
 
             this.Size = new Size(UiLayout.DefaultHoverWindowWidth, UiLayout.DefaultHoverWindowHeight);
+        }
+
+        /// <inheritdoc/>
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams cp = base.CreateParams;
+                cp.ExStyle |= WsExTopmost;
+                return cp;
+            }
         }
 
         /// <summary>
@@ -180,6 +199,23 @@ namespace ComingUpNextTray
         }
 
         /// <inheritdoc/>
+        protected override void OnDeactivate(EventArgs e)
+        {
+            base.OnDeactivate(e);
+            this.ReassertTopMost();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (this.Visible)
+            {
+                this.ReassertTopMost();
+            }
+        }
+
+        /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -190,6 +226,11 @@ namespace ComingUpNextTray
 
             base.Dispose(disposing);
         }
+
+        [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
         private void OnMouseDown_Move(object? sender, MouseEventArgs e)
         {
@@ -239,6 +280,14 @@ namespace ComingUpNextTray
             catch (InvalidOperationException)
             {
                 // ignore
+            }
+        }
+
+        private void ReassertTopMost()
+        {
+            if (this.IsHandleCreated)
+            {
+                SetWindowPos(this.Handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
             }
         }
     }
