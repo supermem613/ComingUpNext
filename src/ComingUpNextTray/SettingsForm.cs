@@ -44,6 +44,9 @@ namespace ComingUpNextTray
             {
                 // ignore if app not fully initialized
             }
+
+            // Populate sound intro path
+            this.textSoundIntroPath.Text = this.app.GetSoundIntroPathForUi() ?? string.Empty;
         }
 
         private void OnSaveClick(object? sender, EventArgs e)
@@ -61,6 +64,7 @@ namespace ComingUpNextTray
             {
                 // Save all config values at once - this updates both memory and disk
                 // Note: SaveConfig updates in-memory values before writing to disk
+                string soundPath = this.textSoundIntroPath.Text?.Trim() ?? string.Empty;
                 this.app.SaveConfig(new Models.ConfigModel
                 {
                     CalendarUrl = input,
@@ -69,6 +73,7 @@ namespace ComingUpNextTray
                     IgnoreFreeOrFollowing = this.checkIgnoreFreeOrFollowing.Checked,
                     HoverWindowLeft = this.app.GetHoverWindowLeftForUi(),
                     HoverWindowTop = this.app.GetHoverWindowTopForUi(),
+                    SoundIntroPath = string.IsNullOrWhiteSpace(soundPath) ? null : soundPath,
                 });
 
                 this.DialogResult = DialogResult.OK;
@@ -77,6 +82,27 @@ namespace ComingUpNextTray
             catch (InvalidOperationException ex)
             {
                 System.Windows.Forms.MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Error);
+            }
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "Using centralized UiText constants; localization pending.")]
+        private void OnBrowseSoundIntroClick(object? sender, EventArgs e)
+        {
+            using OpenFileDialog dlg = new OpenFileDialog
+            {
+                Title = "Select Sound Intro MP3",
+                Filter = "MP3 files (*.mp3)|*.mp3|All files (*.*)|*.*",
+                CheckFileExists = true,
+            };
+
+            if (!string.IsNullOrWhiteSpace(this.textSoundIntroPath.Text) && System.IO.File.Exists(this.textSoundIntroPath.Text))
+            {
+                dlg.InitialDirectory = System.IO.Path.GetDirectoryName(this.textSoundIntroPath.Text);
+            }
+
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+            {
+                this.textSoundIntroPath.Text = dlg.FileName;
             }
         }
 

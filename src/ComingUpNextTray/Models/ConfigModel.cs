@@ -28,5 +28,8 @@ namespace ComingUpNextTray.Models
 
         /// <summary>Gets or sets saved top coordinate of hover window (screen coordinates).</summary>
         public int? HoverWindowTop { get; set; }
+
+        /// <summary>Gets or sets the optional file path to an MP3 played as a sound intro before the next meeting.</summary>
+        public string? SoundIntroPath { get; set; }
     }
 }

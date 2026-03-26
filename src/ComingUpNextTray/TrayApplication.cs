@@ -26,6 +26,7 @@ namespace ComingUpNextTray
         private string? _lastFetchError;
         private int? _hoverWindowLeft;
         private int? _hoverWindowTop;
+        private string? _soundIntroPath;
 
         // Overlay is now always enabled; legacy flag retained only for backward compatible config file reads.
 
@@ -428,6 +429,17 @@ namespace ComingUpNextTray
             this._hoverWindowTop = top;
         }
 
+        /// <summary>Gets the optional sound intro MP3 file path.</summary>
+        /// <returns>The file path or null if not configured.</returns>
+        internal string? GetSoundIntroPathForUi() => this._soundIntroPath;
+
+        /// <summary>Sets the sound intro MP3 file path.</summary>
+        /// <param name="path">Absolute path to an MP3 file, or null to disable.</param>
+        internal void SetSoundIntroPath(string? path)
+        {
+            this._soundIntroPath = string.IsNullOrWhiteSpace(path) ? null : path.Trim();
+        }
+
         /// <summary>Gets whether free/following meetings are ignored.</summary>
         /// <returns>True if such meetings are ignored; otherwise false.</returns>
         internal bool GetIgnoreFreeOrFollowingForUi() => this._ignoreFreeOrFollowing;
@@ -479,6 +491,8 @@ namespace ComingUpNextTray
                     this._hoverWindowTop = ht;
                 }
 
+                this._soundIntroPath = string.IsNullOrWhiteSpace(config.SoundIntroPath) ? null : config.SoundIntroPath.Trim();
+
                 string json = JsonSerializer.Serialize(config, JsonSerializerOptionsCache.IndentedOptions);
                 File.WriteAllText(this._configPath, json);
             }
@@ -502,6 +516,7 @@ namespace ComingUpNextTray
                 IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing,
                 HoverWindowLeft = this._hoverWindowLeft,
                 HoverWindowTop = this._hoverWindowTop,
+                SoundIntroPath = this._soundIntroPath,
             });
         }
 
@@ -548,6 +563,11 @@ namespace ComingUpNextTray
                     if (cfg.HoverWindowTop is int ht)
                     {
                         this._hoverWindowTop = ht;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(cfg.SoundIntroPath))
+                    {
+                        this._soundIntroPath = cfg.SoundIntroPath.Trim();
                     }
                 }
             }

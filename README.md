@@ -22,6 +22,7 @@ It shows a dynamic tooltip with the next meeting title and time, and notifies yo
  - Stores configuration in `%APPDATA%/ComingUpNext/config.json`
  - Lightweight ICS parsing (skips malformed events)
  - Configurable refresh interval (default 5 minutes) via `RefreshMinutes` in `config.json` or "Set Refresh Minutes" context menu option
+ - **Sound Intro**: Optional MP3 announcement that plays before a meeting, timed to end exactly when the meeting starts. Configure via Settings or `SoundIntroPath` in `config.json`. Use "Test Sound Intro" from the context menu to verify playback.
 
 ## ICS Format Expectations
 Provide a publicly accessible `.ics` URL (can be from Outlook, Google Calendar, etc.). The app reads `VEVENT` blocks and uses:
@@ -147,6 +148,20 @@ Create a shortcut to the published EXE in:
 ```text
 %APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
 ```
+
+## Configuration
+
+Settings are stored in `%APPDATA%/ComingUpNext/config.json`:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `CalendarUrl` | string | `""` | ICS feed URL |
+| `RefreshMinutes` | int | `5` | Refresh interval (1–1440) |
+| `ShowHoverWindow` | bool | `true` | Show the floating hover window |
+| `IgnoreFreeOrFollowing` | bool | `true` | Skip meetings marked as Free or Following |
+| `SoundIntroPath` | string | `null` | Path to an MP3 file played before each meeting. The app detects the MP3 duration and starts playback so it ends at the meeting start time. Leave empty to disable. |
+| `HoverWindowLeft` | int | `null` | Saved hover window X position |
+| `HoverWindowTop` | int | `null` | Saved hover window Y position |
 
 ## Future Improvements
  - Add Windows Toast notifications using Windows App SDK for richer UX

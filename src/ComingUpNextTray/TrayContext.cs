@@ -41,6 +41,7 @@ namespace ComingUpNextTray
         private readonly ToolStripMenuItem lastUpdatedDisplayItem; // shows last successful refresh timestamp
         private readonly System.Windows.Forms.Timer refreshTimer;
         private readonly System.Windows.Forms.Timer overlayTimer; // updates icon/tooltip & notifications every minute (offline)
+        private readonly SoundIntroService soundIntroService = new SoundIntroService();
         private ToolStripMenuItem? toggleHoverWindowItem;
         private ToolStripMenuItem? toggleIgnoreFreeFollowingItem;
         private HoverWindow? hoverWindow;
@@ -50,6 +51,8 @@ namespace ComingUpNextTray
         private IntPtr lastOverlayIconHandle = IntPtr.Zero;
         private AlertStage alertStage; // which alerts have been shown for the current meeting
         private CalendarEntry? lastAlertMeeting; // track meeting for which alerts were issued
+        private CalendarEntry? lastSoundIntroMeeting; // track meeting for which sound intro was scheduled
+        private bool soundIntroScheduled; // whether sound intro has been scheduled for current meeting
 
     /// <summary>
         /// Initializes a new instance of the <see cref="TrayContext"/> class.
@@ -100,6 +103,9 @@ namespace ComingUpNextTray
                 }
             }
 
+            // Sound intro test
+            ToolStripMenuItem testSoundIntroItem = new ToolStripMenuItem("Test Sound Intro", null, this.OnTestSoundIntroClick);
+
             // About item
             ToolStripMenuItem aboutItem = new ToolStripMenuItem(UiText.About, null, this.OnAboutClick);
             ToolStripMenuItem exitItem = new ToolStripMenuItem(UiText.Exit, null, this.OnExitClick);
@@ -122,6 +128,7 @@ namespace ComingUpNextTray
             this.menu.Items.Add(resetHoverPositionItem);
             this.menu.Items.Add(refreshItem);
             this.menu.Items.Add(refreshIntervalRoot);
+            this.menu.Items.Add(testSoundIntroItem);
             this.menu.Items.Add(new ToolStripSeparator());
             this.menu.Items.Add(aboutItem);
             this.menu.Items.Add(exitItem);
@@ -205,6 +212,9 @@ namespace ComingUpNextTray
                         }
                     }
 
+                    // Sound intro scheduling: play MP3 timed to end at meeting start.
+                    this.CheckSoundIntro(meeting, now);
+
                     // Keep hover window updated if visible and enabled
                     if (this.toggleHoverWindowItem?.Checked == true && this.hoverWindow is not null && !this.hoverWindow.IsDisposed)
                     {
@@ -282,6 +292,7 @@ namespace ComingUpNextTray
                     this.hoverWindow.Dispose();
                 }
 
+                this.soundIntroService.Dispose();
                 this.app.Dispose();
                 this.refreshTimer.Stop();
                 this.refreshTimer.Dispose();
@@ -731,6 +742,73 @@ namespace ComingUpNextTray
             }
             catch (System.ComponentModel.Win32Exception)
             {
+            }
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Globalization", "CA1303:Do not pass literals as localized parameters", Justification = "Test/debug menu item.")]
+        private void OnTestSoundIntroClick(object? sender, EventArgs e)
+        {
+            string? mp3Path = this.app.GetSoundIntroPathForUi();
+            if (string.IsNullOrWhiteSpace(mp3Path))
+            {
+                this.ShowBalloon("No Sound Intro path configured. Set it in Settings.");
+                return;
+            }
+
+            if (!System.IO.File.Exists(mp3Path))
+            {
+                this.ShowBalloon("Sound Intro file not found: " + mp3Path);
+                return;
+            }
+
+            long durationMs = this.soundIntroService.GetDurationMs(mp3Path, out string? diagnostic);
+            if (durationMs <= 0)
+            {
+                string msg = "Could not read MP3 duration.\n" + (diagnostic ?? "Unknown error.");
+                MessageBox.Show(msg, "Sound Intro Test", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Play immediately for testing — call PlayNow directly on the UI thread.
+            this.soundIntroService.PlayNow(mp3Path);
+            this.ShowBalloon($"Playing sound intro ({durationMs / 1000.0:F1}s)");
+        }
+
+        private void CheckSoundIntro(CalendarEntry? meeting, DateTime now)
+        {
+            string? mp3Path = this.app.GetSoundIntroPathForUi();
+            if (string.IsNullOrWhiteSpace(mp3Path) || meeting is null)
+            {
+                return;
+            }
+
+            // Reset state when meeting changes.
+            if (meeting != this.lastSoundIntroMeeting)
+            {
+                this.lastSoundIntroMeeting = meeting;
+                this.soundIntroScheduled = false;
+                this.soundIntroService.Stop();
+            }
+
+            if (this.soundIntroScheduled)
+            {
+                return;
+            }
+
+            long durationMs = this.soundIntroService.GetDurationMs(mp3Path);
+            if (durationMs <= 0)
+            {
+                return;
+            }
+
+            double remainingMs = (meeting.StartTime - now).TotalMilliseconds;
+            double playStartMs = remainingMs - durationMs;
+
+            // Schedule if playback should start within the next overlay interval (30 seconds).
+            if (playStartMs >= 0 && playStartMs < 31_000)
+            {
+                this.soundIntroService.SchedulePlayback(mp3Path, meeting.StartTime, durationMs);
+                this.soundIntroScheduled = true;
             }
         }
 
