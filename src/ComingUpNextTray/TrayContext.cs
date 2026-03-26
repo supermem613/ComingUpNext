@@ -170,7 +170,7 @@ namespace ComingUpNextTray
 
             this.overlayTimer = new System.Windows.Forms.Timer
             {
-                Interval = 60_000,
+                Interval = 30_000,
             };
             this.overlayTimer.Tick += (s, e) =>
             {
