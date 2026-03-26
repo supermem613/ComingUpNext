@@ -17,11 +17,13 @@ namespace ComingUpNextTray
         private const uint SwpNoSize = 0x0001;
         private const uint SwpNoActivate = 0x0010;
         private const int WsExTopmost = 0x00000008;
+        private const int WsExToolWindow = 0x00000080;
 
         private static readonly IntPtr HwndTopmost = new (-1);
 
         private readonly Label titleLabel;
         private readonly Label timeLabel;
+        private readonly System.Windows.Forms.Timer deferredTopMostTimer;
         private Point dragStart;
         private CalendarEntry? currentMeeting;
 
@@ -77,7 +79,17 @@ namespace ComingUpNextTray
             this.MouseDoubleClick += this.OnMouseDoubleClick_OpenMeeting;
 
             this.Size = new Size(UiLayout.DefaultHoverWindowWidth, UiLayout.DefaultHoverWindowHeight);
+
+            // Periodic reassertion keeps the window on top when other apps
+            // (e.g. Outlook) aggressively manage z-order on launch.
+            // SetWindowPos is a single cheap syscall — no repaint cost.
+            this.deferredTopMostTimer = new System.Windows.Forms.Timer { Interval = 3000 };
+            this.deferredTopMostTimer.Tick += (_, _) => this.ReassertTopMost();
+            this.deferredTopMostTimer.Start();
         }
+
+        /// <inheritdoc/>
+        protected override bool ShowWithoutActivation => true;
 
         /// <inheritdoc/>
         protected override CreateParams CreateParams
@@ -85,7 +97,7 @@ namespace ComingUpNextTray
             get
             {
                 CreateParams cp = base.CreateParams;
-                cp.ExStyle |= WsExTopmost;
+                cp.ExStyle |= WsExTopmost | WsExToolWindow;
                 return cp;
             }
         }
@@ -198,11 +210,15 @@ namespace ComingUpNextTray
             this.timeLabel.ForeColor = foreground;
         }
 
-        /// <inheritdoc/>
-        protected override void OnDeactivate(EventArgs e)
+        /// <summary>
+        /// Forces the window back to the topmost z-order position.
+        /// </summary>
+        internal void ReassertTopMost()
         {
-            base.OnDeactivate(e);
-            this.ReassertTopMost();
+            if (this.IsHandleCreated)
+            {
+                SetWindowPos(this.Handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+            }
         }
 
         /// <inheritdoc/>
@@ -220,6 +236,8 @@ namespace ComingUpNextTray
         {
             if (disposing)
             {
+                this.deferredTopMostTimer.Stop();
+                this.deferredTopMostTimer.Dispose();
                 this.titleLabel.Dispose();
                 this.timeLabel.Dispose();
             }
@@ -280,14 +298,6 @@ namespace ComingUpNextTray
             catch (InvalidOperationException)
             {
                 // ignore
-            }
-        }
-
-        private void ReassertTopMost()
-        {
-            if (this.IsHandleCreated)
-            {
-                SetWindowPos(this.Handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
             }
         }
     }

@@ -218,6 +218,7 @@ namespace ComingUpNextTray
                         double? minutes2 = meeting is not null ? (meeting.StartTime - now).TotalMinutes : null;
                         (Color bg2, Color fg2) = MeetingColorHelper.GetColors(state, minutes2);
                         this.hoverWindow.SetColors(bg2, fg2);
+                        this.hoverWindow.ReassertTopMost();
                     }
                 }
             };
