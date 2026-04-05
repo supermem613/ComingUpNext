@@ -22,7 +22,7 @@ It shows a dynamic tooltip with the next meeting title and time, and notifies yo
  - Stores configuration in `%APPDATA%/ComingUpNext/config.json`
  - Lightweight ICS parsing (skips malformed events)
  - Configurable refresh interval (default 5 minutes) via `RefreshMinutes` in `config.json` or "Set Refresh Minutes" context menu option
- - **Sound Intro**: Optional MP3 announcement that plays before a meeting, timed to end exactly when the meeting starts. Configure via Settings or `SoundIntroPath` in `config.json`. Use "Test Sound Intro" from the context menu to verify playback.
+ - **Sound Intro**: Optional MP3 announcement that plays before a meeting, timed to end exactly when the meeting starts. Configure via Settings or `SoundIntroPath` in `config.json`. Use "Test Sound Intro" from the context menu to verify playback. Playback is automatically suppressed when a microphone is actively in use (e.g. during a Teams or Zoom call) so it won't interrupt ongoing conversations.
 
 ## ICS Format Expectations
 Provide a publicly accessible `.ics` URL (can be from Outlook, Google Calendar, etc.). The app reads `VEVENT` blocks and uses:
