@@ -20,6 +20,30 @@ namespace ComingUpNextTray
         /// <summary>Context menu item text to set the calendar URL.</summary>
         internal const string SetCalendarUrl = "Set Calendar URL";
 
+        /// <summary>Label for the selected calendar source.</summary>
+        internal const string CalendarSource = "Calendar source";
+
+        /// <summary>Calendar source that reads an ICS feed.</summary>
+        internal const string IcsSource = "ICS feed";
+
+        /// <summary>Calendar source that reads Work IQ.</summary>
+        internal const string WorkIqSource = "Work IQ";
+
+        /// <summary>Label for the Work IQ account email.</summary>
+        internal const string WorkIqAccount = "Work IQ account email";
+
+        /// <summary>Label for the optional Work IQ executable path.</summary>
+        internal const string WorkIqExecutablePath = "Work IQ executable path";
+
+        /// <summary>Button text for choosing a file.</summary>
+        internal const string Browse = "Browse...";
+
+        /// <summary>Prompt shown when Work IQ is selected without an account email.</summary>
+        internal const string WorkIqAccountRequired = "Enter the Work IQ account email.";
+
+        /// <summary>File dialog title for choosing the Work IQ executable.</summary>
+        internal const string SelectWorkIqExecutable = "Select Work IQ Executable";
+
         /// <summary>Context menu item text to set the refresh interval minutes.</summary>
         internal const string SetRefreshMinutes = "Refresh Interval";
 

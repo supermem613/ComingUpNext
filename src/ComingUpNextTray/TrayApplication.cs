@@ -14,7 +14,11 @@ namespace ComingUpNextTray
     {
         private readonly string _configPath;
         private readonly CalendarService _calendarService = new CalendarService();
+        private readonly WorkIqCalendarService _workIqCalendarService = new WorkIqCalendarService();
         private string? _calendarUrl;
+        private CalendarSourceKind _calendarSource = CalendarSourceKind.Ics;
+        private string? _workIqAccount;
+        private string? _workIqExecutablePath;
         private CalendarEntry? _nextMeeting;
         private IReadOnlyList<CalendarEntry>? _lastEntries; // cached entries from last fetch for advancement
         private bool _configErrorDetected;
@@ -119,7 +123,7 @@ namespace ComingUpNextTray
         internal async Task<bool> RefreshAsync(CancellationToken ct = default)
         {
             ObjectDisposedException.ThrowIf(this._disposed, nameof(TrayApplication));
-            if (string.IsNullOrWhiteSpace(this._calendarUrl))
+            if (this._calendarSource == CalendarSourceKind.Ics && string.IsNullOrWhiteSpace(this._calendarUrl))
             {
                 this._lastFetchError = null;
                 return false;
@@ -129,14 +133,17 @@ namespace ComingUpNextTray
             {
                 // Try the error-propagating fetch so we can show users what went wrong.
                 IReadOnlyList<CalendarEntry> newEntries = Array.Empty<CalendarEntry>();
-                bool changed = false;
-                if (Uri.TryCreate(this._calendarUrl, UriKind.Absolute, out Uri? uri))
+                if (this._calendarSource == CalendarSourceKind.WorkIq)
+                {
+                    newEntries = await this._workIqCalendarService.FetchAsync(this._workIqAccount, this._workIqExecutablePath, ct).ConfigureAwait(false);
+                }
+                else if (Uri.TryCreate(this._calendarUrl, UriKind.Absolute, out Uri? uri))
                 {
                     // Prefer conditional fetch when we already have validators; fall back to full fetch otherwise.
                     if (this._calendarService.HasChangeValidators)
                     {
                         newEntries = await this._calendarService.FetchIfChangedWithErrorsAsync(uri, ct).ConfigureAwait(false);
-                        changed = newEntries.Count > 0; // empty list means not modified (304) or no changed body.
+                        bool changed = newEntries.Count > 0; // empty list means not modified (304) or no changed body.
 
                         if (!changed)
                         {
@@ -151,14 +158,12 @@ namespace ComingUpNextTray
                                 // (possible after restart with server-side validators). Fetch full body
                                 // so we can populate the initial entries rather than showing empty UI.
                                 newEntries = await this._calendarService.FetchWithErrorsAsync(uri, ct).ConfigureAwait(false);
-                                changed = true;
                             }
                         }
                     }
                     else
                     {
                         newEntries = await this._calendarService.FetchWithErrorsAsync(uri, ct).ConfigureAwait(false);
-                        changed = true;
                     }
                 }
 
@@ -170,6 +175,13 @@ namespace ComingUpNextTray
             }
             catch (OperationCanceledException)
             {
+                return false;
+            }
+            catch (WorkIqException ex)
+            {
+                this._lastFetchError = ex.Message;
+                this._lastEntries = Array.Empty<CalendarEntry>();
+                this._nextMeeting = null;
                 return false;
             }
             catch (System.Net.Http.HttpRequestException ex)
@@ -197,7 +209,7 @@ namespace ComingUpNextTray
         /// <returns>Icon state value.</returns>
         internal IconState ComputeIconState(DateTime now)
         {
-            if (string.IsNullOrWhiteSpace(this._calendarUrl))
+            if (this._calendarSource == CalendarSourceKind.Ics && string.IsNullOrWhiteSpace(this._calendarUrl))
             {
                 return IconState.NoCalendar;
             }
@@ -360,6 +372,18 @@ namespace ComingUpNextTray
         /// <returns>The calendar URL or empty string.</returns>
         internal string GetCalendarUrlForUi() => this._calendarUrl ?? string.Empty;
 
+        /// <summary>Gets the selected calendar source.</summary>
+        /// <returns>The selected calendar source.</returns>
+        internal CalendarSourceKind GetCalendarSourceForUi() => this._calendarSource;
+
+        /// <summary>Gets the configured Work IQ account email.</summary>
+        /// <returns>The email or empty string.</returns>
+        internal string GetWorkIqAccountForUi() => this._workIqAccount ?? string.Empty;
+
+        /// <summary>Gets the optional Work IQ executable path.</summary>
+        /// <returns>The path or empty string.</returns>
+        internal string GetWorkIqExecutablePathForUi() => this._workIqExecutablePath ?? string.Empty;
+
         /// <summary>Gets the UTC timestamp when the calendar was last refreshed.</summary>
         /// <returns>Refresh UTC timestamp.</returns>
         internal DateTime GetLastRefreshUtcForUi() => this._lastRefreshUtc;
@@ -466,6 +490,17 @@ namespace ComingUpNextTray
                     this._calendarUrl = config.CalendarUrl;
                 }
 
+                if (this._calendarSource != config.CalendarSource)
+                {
+                    this._lastEntries = null;
+                    this._nextMeeting = null;
+                    this._lastRefreshUtc = default;
+                }
+
+                this._calendarSource = config.CalendarSource;
+                this._workIqAccount = string.IsNullOrWhiteSpace(config.WorkIqAccount) ? null : config.WorkIqAccount.Trim();
+                this._workIqExecutablePath = string.IsNullOrWhiteSpace(config.WorkIqExecutablePath) ? null : config.WorkIqExecutablePath.Trim();
+
                 if (config.RefreshMinutes is int rm && rm > 0 && rm <= 1440)
                 {
                     this._refreshMinutes = rm;
@@ -511,6 +546,9 @@ namespace ComingUpNextTray
             this.SaveConfig(new ConfigModel
             {
                 CalendarUrl = this._calendarUrl,
+                CalendarSource = this._calendarSource,
+                WorkIqAccount = this._workIqAccount,
+                WorkIqExecutablePath = this._workIqExecutablePath,
                 RefreshMinutes = this._refreshMinutes,
                 ShowHoverWindow = this._showHoverWindow,
                 IgnoreFreeOrFollowing = this._ignoreFreeOrFollowing,
@@ -545,6 +583,9 @@ namespace ComingUpNextTray
                 if (cfg is not null)
                 {
                     this._calendarUrl = cfg.CalendarUrl ?? string.Empty;
+                    this._calendarSource = cfg.CalendarSource;
+                    this._workIqAccount = string.IsNullOrWhiteSpace(cfg.WorkIqAccount) ? null : cfg.WorkIqAccount.Trim();
+                    this._workIqExecutablePath = string.IsNullOrWhiteSpace(cfg.WorkIqExecutablePath) ? null : cfg.WorkIqExecutablePath.Trim();
                     if (cfg.RefreshMinutes is int rm && rm > 0 && rm < 1440)
                     {
                         this._refreshMinutes = rm;

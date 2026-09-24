@@ -21,6 +21,7 @@ It shows a dynamic tooltip with the next meeting title and time, and notifies yo
  - Context menu: Open Meeting, Refresh, Set Calendar URL, Exit
  - Stores configuration in `%APPDATA%/ComingUpNext/config.json`
  - Lightweight ICS parsing (skips malformed events)
+ - Optional Work IQ calendar source; ICS remains the default and its URL is retained when Work IQ is selected
  - Configurable refresh interval (default 5 minutes) via `RefreshMinutes` in `config.json` or "Set Refresh Minutes" context menu option
  - **Sound Intro**: Optional MP3 announcement that plays before a meeting, timed to end exactly when the meeting starts. Configure via Settings or `SoundIntroPath` in `config.json`. Use "Test Sound Intro" from the context menu to verify playback. Playback is automatically suppressed when a microphone is actively in use (e.g. during a Teams or Zoom call) so it won't interrupt ongoing conversations.
 
@@ -52,6 +53,14 @@ Timezone & recurrence handling:
  - `EXDATE` entries remove specific occurrences from recurrence expansion.
 
 Limitations: Advanced recurrence (monthly rules, BYSETPOS, COUNT, exceptions with time shifts) is not yet supported.
+
+## Optional Work IQ Source
+
+The default source remains the ICS feed. To use Work IQ, open Settings and choose **Work IQ**. Enter the account email used by Work IQ. The app looks for the native `workiq.exe` on `PATH`; if it cannot find it, choose the executable in Settings. Work IQ must be installed and available to that account. The app does not install Work IQ or manage its sign-in.
+
+The app calls `workiq fetch --account <email> -u <entity-url>` and reads the structured JSON returned by the CLI. It requests `/me/calendarView` for a UTC window from the current time through the next two days, so Graph returns occurrences, exceptions, and single events in that range. The saved ICS URL remains in the configuration so you can switch back. When Work IQ is selected, the app does not fetch ICS if Work IQ fails; it reports the Work IQ error instead.
+
+The Work IQ account email and optional executable path are stored in `%APPDATA%/ComingUpNext/config.json`. The native Work IQ CLI owns its authentication and any sign-in requirements.
 
 ## Build & Run
 Requires .NET 9 SDK.
