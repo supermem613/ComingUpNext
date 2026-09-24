@@ -1,5 +1,18 @@
 namespace ComingUpNextTray.Models
 {
+    using System.Text.Json.Serialization;
+
+    /// <summary>Calendar source selected by the user.</summary>
+    [JsonConverter(typeof(JsonStringEnumConverter<CalendarSourceKind>))]
+    internal enum CalendarSourceKind
+    {
+        /// <summary>Use the configured ICS feed.</summary>
+        Ics,
+
+        /// <summary>Use the manually installed Work IQ CLI.</summary>
+        WorkIq,
+    }
+
     /// <summary>
     /// Serializable configuration persisted to JSON. Versioned for future migrations.
     /// </summary>
@@ -10,6 +23,15 @@ namespace ComingUpNextTray.Models
 
         /// <summary>Gets or sets the calendar URL (ICS feed).</summary>
         public string? CalendarUrl { get; set; }
+
+        /// <summary>Gets or sets the selected calendar source.</summary>
+        public CalendarSourceKind CalendarSource { get; set; } = CalendarSourceKind.Ics;
+
+        /// <summary>Gets or sets an optional path to a manually installed Work IQ executable.</summary>
+        public string? WorkIqExecutablePath { get; set; }
+
+        /// <summary>Gets or sets the Work IQ account email used by the CLI.</summary>
+        public string? WorkIqAccount { get; set; }
 
         /// <summary>Gets or sets the refresh interval in minutes.</summary>
         public int? RefreshMinutes { get; set; }

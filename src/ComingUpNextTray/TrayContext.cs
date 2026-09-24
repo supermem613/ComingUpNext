@@ -401,10 +401,12 @@ namespace ComingUpNextTray
 
                 if (!ok)
                 {
-                    // Show a one-time balloon if calendar URL exists but fetch failed.
+                    // Show an error for the selected source, including Work IQ without an ICS URL.
                     string url = this.app.GetCalendarUrlForUi();
                     string? fetchErr = this.app.GetLastFetchErrorForUi();
-                    if (!string.IsNullOrWhiteSpace(url) && !string.IsNullOrWhiteSpace(fetchErr))
+                    bool hasSelectedSource = this.app.GetCalendarSourceForUi() == CalendarSourceKind.WorkIq ||
+                        !string.IsNullOrWhiteSpace(url);
+                    if (hasSelectedSource && !string.IsNullOrWhiteSpace(fetchErr))
                     {
                         this.ShowErrorBalloon(fetchErr);
                     }
@@ -489,7 +491,8 @@ namespace ComingUpNextTray
                         item.Enabled = next?.MeetingUrl != null;
                         break;
                     case var s when s == UiText.OpenCalendarUrl || s == UiText.CopyCalendarUrl:
-                        item.Enabled = !string.IsNullOrWhiteSpace(calendarUrl);
+                        item.Enabled = this.app.GetCalendarSourceForUi() == CalendarSourceKind.Ics &&
+                            !string.IsNullOrWhiteSpace(calendarUrl);
                         break;
                 }
             }
