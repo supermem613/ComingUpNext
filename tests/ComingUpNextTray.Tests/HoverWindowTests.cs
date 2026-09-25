@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using System.Windows.Forms;
 using Xunit;
 using ComingUpNextTray;
 using ComingUpNextTray.Models;
@@ -11,6 +13,11 @@ namespace ComingUpNextTray.Tests {
             object? lbl = f.GetValue(w);
             PropertyInfo? textProp = lbl?.GetType().GetProperty("Text");
             return (string?)textProp?.GetValue(lbl) ?? string.Empty;
+        }
+
+        private static void RaiseDoubleClick(HoverWindow window) {
+            MethodInfo onMouseDoubleClick = typeof(Control).GetMethod("OnMouseDoubleClick", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            onMouseDoubleClick.Invoke(window, new object[] { new MouseEventArgs(MouseButtons.Left, 2, 0, 0, 0) });
         }
 
         [Fact]
@@ -66,6 +73,49 @@ namespace ComingUpNextTray.Tests {
             // Expect ellipsis when truncated
             Assert.Contains("...", title);
             hw.Dispose();
+        }
+
+        [Fact]
+        public void DoubleClick_OpensOnlyTheSuppliedMeetingUrl() {
+            List<Uri> openedUrls = new List<Uri>();
+            DateTime now = DateTime.Now;
+            Uri icsUrl = new Uri("https://calendar.example.test/ics-meeting");
+            Uri workIqUrl = new Uri("https://teams.microsoft.com/l/meetup-join/workiq");
+            CalendarEntry icsMeeting = new CalendarEntry { Title = "ICS meeting", StartTime = now.AddMinutes(5), EndTime = now.AddMinutes(35), MeetingUrl = icsUrl };
+            CalendarEntry workIqMeetingWithoutUrl = new CalendarEntry { Title = "Work IQ meeting without link", StartTime = now.AddMinutes(10), EndTime = now.AddMinutes(40) };
+            CalendarEntry workIqMeetingWithUrl = new CalendarEntry { Title = "Work IQ meeting", StartTime = now.AddMinutes(15), EndTime = now.AddMinutes(45), MeetingUrl = workIqUrl };
+
+            using (HoverWindow window = new HoverWindow(openedUrls.Add)) {
+                window.UpdateMeeting(icsMeeting, now, meetingUrlToOpen: null);
+                RaiseDoubleClick(window);
+                window.UpdateMeeting(workIqMeetingWithoutUrl, now, meetingUrlToOpen: null);
+                RaiseDoubleClick(window);
+                window.UpdateMeeting(workIqMeetingWithUrl, now, meetingUrlToOpen: workIqUrl);
+                RaiseDoubleClick(window);
+            }
+
+            Assert.Equal(new[] { workIqUrl }, openedUrls);
+        }
+
+        [Fact]
+        public void DoubleClick_OpensOnlyForWorkIqSource() {
+            List<Uri> openedUrls = new List<Uri>();
+            DateTime now = DateTime.Now;
+            Uri icsUrl = new Uri("https://calendar.example.test/ics-meeting");
+            Uri workIqUrl = new Uri("https://teams.microsoft.com/l/meetup-join/workiq");
+            Uri? icsUrlToOpen = TrayContext.GetEligibleMeetingUrlForHoverWindow(CalendarSourceKind.Ics, icsUrl);
+            Uri? workIqUrlToOpen = TrayContext.GetEligibleMeetingUrlForHoverWindow(CalendarSourceKind.WorkIq, workIqUrl);
+            CalendarEntry icsMeeting = new CalendarEntry { Title = "ICS meeting", StartTime = now.AddMinutes(5), EndTime = now.AddMinutes(35), MeetingUrl = icsUrl };
+            CalendarEntry workIqMeeting = new CalendarEntry { Title = "Work IQ meeting", StartTime = now.AddMinutes(15), EndTime = now.AddMinutes(45), MeetingUrl = workIqUrl };
+
+            using (HoverWindow window = new HoverWindow(openedUrls.Add)) {
+                window.UpdateMeeting(icsMeeting, now, meetingUrlToOpen: icsUrlToOpen);
+                RaiseDoubleClick(window);
+                window.UpdateMeeting(workIqMeeting, now, meetingUrlToOpen: workIqUrlToOpen);
+                RaiseDoubleClick(window);
+            }
+
+            Assert.Equal(new[] { workIqUrl }, openedUrls);
         }
     }
 }

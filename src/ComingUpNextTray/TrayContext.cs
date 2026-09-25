@@ -222,7 +222,12 @@ namespace ComingUpNextTray
 
                         // Provide last fetch error if present so hover can prefer showing it.
                         string? fetchErr = this.app.GetLastFetchErrorForUi();
-                        this.hoverWindow.UpdateMeeting(meeting, now, overlayTokenNow, fetchErr);
+                        this.hoverWindow.UpdateMeeting(
+                            meeting,
+                            now,
+                            overlayTokenNow,
+                            fetchErr,
+                            meetingUrlToOpen: GetEligibleMeetingUrlForHoverWindow(this.app.GetCalendarSourceForUi(), meeting?.MeetingUrl));
 
                         // update colors using central helper
                         double? minutes2 = meeting is not null ? (meeting.StartTime - now).TotalMinutes : null;
@@ -239,7 +244,14 @@ namespace ComingUpNextTray
             {
                 this.toggleHoverWindowItem!.Checked = true;
                 this.hoverWindow = new HoverWindow();
-                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now, includeUnit: true), this.app.GetLastFetchErrorForUi());
+                CalendarEntry? meeting = this.app.GetNextMeetingForUi();
+                DateTime now = DateTime.Now;
+                this.hoverWindow.UpdateMeeting(
+                    meeting,
+                    now,
+                    this.app.GetOverlayText(now, includeUnit: true),
+                    this.app.GetLastFetchErrorForUi(),
+                    meetingUrlToOpen: GetEligibleMeetingUrlForHoverWindow(this.app.GetCalendarSourceForUi(), meeting?.MeetingUrl));
 
                 // Restore saved position if available, otherwise position near mouse
                 int? savedLeft = this.app.GetHoverWindowLeftForUi();
@@ -262,6 +274,17 @@ namespace ComingUpNextTray
 
             // Subscribe to session switch events to refresh calendar on workstation unlock.
             SystemEvents.SessionSwitch += this.OnSessionSwitch;
+        }
+
+        /// <summary>
+        /// Returns the meeting URL that can be opened from the hover window for the selected source.
+        /// </summary>
+        /// <param name="source">Selected calendar source.</param>
+        /// <param name="meetingUrl">Meeting URL from the current calendar entry.</param>
+        /// <returns>The eligible meeting URL or null.</returns>
+        internal static Uri? GetEligibleMeetingUrlForHoverWindow(CalendarSourceKind source, Uri? meetingUrl)
+        {
+            return source == CalendarSourceKind.WorkIq ? meetingUrl : null;
         }
 
         /// <inheritdoc />
@@ -392,7 +415,12 @@ namespace ComingUpNextTray
                     DateTime nowLocal = DateTime.Now;
                     CalendarEntry? meeting = this.app.GetNextMeetingForUi();
                     string overlayTokenNow = this.app.GetOverlayText(nowLocal, includeUnit: true);
-                    this.hoverWindow.UpdateMeeting(meeting, nowLocal, overlayTokenNow, this.app.GetLastFetchErrorForUi());
+                    this.hoverWindow.UpdateMeeting(
+                        meeting,
+                        nowLocal,
+                        overlayTokenNow,
+                        this.app.GetLastFetchErrorForUi(),
+                        meetingUrlToOpen: GetEligibleMeetingUrlForHoverWindow(this.app.GetCalendarSourceForUi(), meeting?.MeetingUrl));
                     TrayApplication.IconState state = this.app.ComputeIconState(nowLocal);
                     double? minutes2 = meeting is not null ? (meeting.StartTime - nowLocal).TotalMinutes : null;
                     (Color bg2, Color fg2) = MeetingColorHelper.GetColors(state, minutes2);
@@ -538,7 +566,14 @@ namespace ComingUpNextTray
                     this.hoverWindow = new HoverWindow();
                 }
 
-                this.hoverWindow.UpdateMeeting(this.app.GetNextMeetingForUi(), DateTime.Now, this.app.GetOverlayText(DateTime.Now), this.app.GetLastFetchErrorForUi());
+                CalendarEntry? meetingForHover = this.app.GetNextMeetingForUi();
+                DateTime now = DateTime.Now;
+                this.hoverWindow.UpdateMeeting(
+                    meetingForHover,
+                    now,
+                    this.app.GetOverlayText(now),
+                    this.app.GetLastFetchErrorForUi(),
+                    meetingUrlToOpen: GetEligibleMeetingUrlForHoverWindow(this.app.GetCalendarSourceForUi(), meetingForHover?.MeetingUrl));
 
                 // choose colors consistent with overlay computation
                 Color bg = Color.Black;

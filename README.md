@@ -1,6 +1,6 @@
 # ComingUpNext Tray
 
-A lightweight Windows 11 tray application that displays your next upcoming meeting from a public calendar ICS (.ics) feed.
+A lightweight Windows 11 tray application that displays your next upcoming meeting from an ICS (.ics) feed or the optional Work IQ CLI. ICS is the default source.
 
 It shows a dynamic tooltip with the next meeting title and time, and notifies you when the meeting is about to start. Optionally, it shows a hover/preview window with more details.
 
@@ -19,6 +19,7 @@ It shows a dynamic tooltip with the next meeting title and time, and notifies yo
  - Tray icon with dynamic tooltip showing: `Next: <Title> (In X min|In Y h|Mon HH:mm)`
  - Auto balloon notification when a meeting is within 15 minutes (once per meeting)
  - Context menu: Open Meeting, Refresh, Set Calendar URL, Exit
+ - Double-click the hover/preview window to open a Work IQ meeting link when one is available. Double-click does nothing for ICS meetings or Work IQ meetings without a link.
  - Stores configuration in `%APPDATA%/ComingUpNext/config.json`
  - Lightweight ICS parsing (skips malformed events)
  - Optional Work IQ calendar source; ICS remains the default and its URL is retained when Work IQ is selected
@@ -56,9 +57,11 @@ Limitations: Advanced recurrence (monthly rules, BYSETPOS, COUNT, exceptions wit
 
 ## Optional Work IQ Source
 
-The default source remains the ICS feed. To use Work IQ, open Settings and choose **Work IQ**. Enter the account email used by Work IQ. The app looks for the native `workiq.exe` on `PATH`; if it cannot find it, choose the executable in Settings. Work IQ must be installed and available to that account. The app does not install Work IQ or manage its sign-in.
+The default source remains the ICS feed. To use Work IQ, open Settings and choose **Work IQ**. Enter the account email used by Work IQ. Work IQ must already be installed and available to the Windows account running the app. The app can resolve the Work IQ CLI from the installed command; if it cannot locate the native executable, set the executable path in Settings. The app does not install Work IQ or manage its sign-in.
 
 The app calls `workiq fetch --account <email> -u <entity-url>` and reads the structured JSON returned by the CLI. It requests `/me/calendarView` for a UTC window from the current time through the next two days, so Graph returns occurrences, exceptions, and single events in that range. The saved ICS URL remains in the configuration so you can switch back. When Work IQ is selected, the app does not fetch ICS if Work IQ fails; it reports the Work IQ error instead.
+
+Work IQ meeting links come from `onlineMeeting.joinUrl`, with `onlineMeetingUrl` as a fallback. Double-click the hover/preview window to open that link. ICS meeting links are not opened by double-clicking the hover/preview window; the context-menu **Open Meeting** action is unchanged.
 
 The Work IQ account email and optional executable path are stored in `%APPDATA%/ComingUpNext/config.json`. The native Work IQ CLI owns its authentication and any sign-in requirements.
 
@@ -113,12 +116,12 @@ Adjustments:
 
 Silent install example:
 ```powershell
-msiexec /i ComingUpNextTray-1.0.0.msi /qn
+msiexec /i ComingUpNextTray-0.2.0.msi /qn
 ```
 
 Uninstall:
 ```powershell
-msiexec /x ComingUpNextTray-1.0.0.msi /qn
+msiexec /x ComingUpNextTray-0.2.0.msi /qn
 ```
 
 If you modify published output location or add resources, re-run the build script to regenerate harvested components.
@@ -165,6 +168,9 @@ Settings are stored in `%APPDATA%/ComingUpNext/config.json`:
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `CalendarUrl` | string | `""` | ICS feed URL |
+| `CalendarSource` | string | `"Ics"` | Selected calendar source: `"Ics"` or `"WorkIq"` |
+| `WorkIqAccount` | string or null | `null` | Account email passed to the Work IQ CLI |
+| `WorkIqExecutablePath` | string or null | `null` | Optional path to the Work IQ native executable when it cannot be resolved automatically |
 | `RefreshMinutes` | int | `5` | Refresh interval (1–1440) |
 | `ShowHoverWindow` | bool | `true` | Show the floating hover window |
 | `IgnoreFreeOrFollowing` | bool | `true` | Skip meetings marked as Free or Following |

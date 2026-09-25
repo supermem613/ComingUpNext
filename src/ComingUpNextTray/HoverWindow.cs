@@ -24,14 +24,27 @@ namespace ComingUpNextTray
         private readonly Label titleLabel;
         private readonly Label timeLabel;
         private readonly System.Windows.Forms.Timer deferredTopMostTimer;
+        private readonly Action<Uri> openMeetingUrl;
+        private Uri? meetingUrlToOpen;
         private Point dragStart;
-        private CalendarEntry? currentMeeting;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="HoverWindow"/> class.
         /// </summary>
         public HoverWindow()
+            : this(OpenMeetingUrl)
         {
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="HoverWindow"/> class with a meeting URL opener.
+        /// </summary>
+        /// <param name="openMeetingUrl">Action that opens a meeting URL.</param>
+        internal HoverWindow(Action<Uri> openMeetingUrl)
+        {
+            ArgumentNullException.ThrowIfNull(openMeetingUrl);
+            this.openMeetingUrl = openMeetingUrl;
+
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.Manual;
             this.TopMost = true;
@@ -109,25 +122,26 @@ namespace ComingUpNextTray
         /// <param name="now">Reference time for formatting.</param>
         /// <param name="overlayToken">Optional overlay token (e.g. "5" or "1h" or "5 min") to display after the title as "(In X)".</param>
         /// <param name="fetchError">Optional fetch error message to display instead of meeting information.</param>
+        /// <param name="meetingUrlToOpen">Optional eligible meeting URL to open on double-click.</param>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Usage", "CA1303:Do not pass literals as localized parameters", Justification = "Using centralized UiText constants; localization pending.")]
-        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null)
+        public void UpdateMeeting(CalendarEntry? meeting, DateTime now, string? overlayToken = null, string? fetchError = null, Uri? meetingUrlToOpen = null)
         {
             // If an error occurred during fetch, display the error prominently instead of meeting info.
             if (!string.IsNullOrEmpty(fetchError))
             {
                 this.titleLabel.Text = UiText.FetchErrorPrefix + fetchError;
                 this.timeLabel.Text = string.Empty;
-                this.currentMeeting = null;
+                this.meetingUrlToOpen = null;
             }
             else if (meeting is null)
             {
                 this.titleLabel.Text = UiText.NoUpcomingMeetings;
                 this.timeLabel.Text = string.Empty;
-                this.currentMeeting = null;
+                this.meetingUrlToOpen = null;
             }
             else
             {
-                this.currentMeeting = meeting;
+                this.meetingUrlToOpen = meetingUrlToOpen;
                 string title = meeting.Title ?? "Untitled";
 
                 // Only append a qualifier for meaningful overlay tokens.
@@ -250,6 +264,11 @@ namespace ComingUpNextTray
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
+        private static void OpenMeetingUrl(Uri uri)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = uri.ToString(), UseShellExecute = true });
+        }
+
         private void OnMouseDown_Move(object? sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -286,9 +305,9 @@ namespace ComingUpNextTray
 
             try
             {
-                if (this.currentMeeting?.MeetingUrl != null)
+                if (this.meetingUrlToOpen is not null)
                 {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = this.currentMeeting.MeetingUrl.ToString(), UseShellExecute = true });
+                    this.openMeetingUrl(this.meetingUrlToOpen);
                 }
             }
             catch (System.ComponentModel.Win32Exception)
