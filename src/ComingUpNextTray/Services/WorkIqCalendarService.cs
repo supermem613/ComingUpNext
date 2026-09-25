@@ -369,6 +369,12 @@ namespace ComingUpNextTray.Services
                 throw new WorkIqException($"Work IQ fetch failed with exit code {process.ExitCode}. Check the account email, Work IQ access, and sign-in.");
             }
 
+            if (output.Contains("End User License", StringComparison.OrdinalIgnoreCase) &&
+                output.Contains("workiq accept-eula", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new WorkIqException("Work IQ requires EULA acceptance. Run 'workiq accept-eula', then retry.");
+            }
+
             return output;
         }
     }
