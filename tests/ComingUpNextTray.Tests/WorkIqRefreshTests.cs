@@ -187,6 +187,53 @@ namespace ComingUpNextTray.Tests
         }
 
         [Fact]
+        public async Task WorkIqEulaPromptReportsActionableError()
+        {
+            string tempDirectory = Path.Combine(Path.GetTempPath(), "cun_workiq_" + Guid.NewGuid().ToString("N"));
+            string configPath = Path.Combine(tempDirectory, "config.json");
+            const string accountEmail = "marcusm@microsoft.com";
+            const string expectedError = "Work IQ requires EULA acceptance. Run 'workiq accept-eula', then retry.";
+
+            try
+            {
+                Directory.CreateDirectory(tempDirectory);
+                // This fixture preserves the native Work IQ stdout observed when its EULA has not been accepted.
+                File.WriteAllText(
+                    Path.Combine(tempDirectory, "workiq.cmd"),
+                    "@echo off\r\n" +
+                    "echo.\r\n" +
+                    "echo         ==============================================================\r\n" +
+                    "echo         In order to use this tool you must accept the End User License\r\n" +
+                    "echo         Agreement ^(EULA^) found at:\r\n" +
+                    "echo         https://github.com/microsoft/work-iq\r\n" +
+                    "echo.\r\n" +
+                    "echo         To accept EULA, please execute the following command:\r\n" +
+                    "echo.\r\n" +
+                    "echo             workiq accept-eula\r\n" +
+                    "echo.\r\n" +
+                    "echo         ==============================================================\r\n");
+                File.WriteAllText(configPath, JsonSerializer.Serialize(new ConfigModel
+                {
+                    CalendarSource = CalendarSourceKind.WorkIq,
+                    WorkIqExecutablePath = Path.Combine(tempDirectory, "workiq.cmd"),
+                    WorkIqAccount = accountEmail,
+                }));
+
+                using TrayApplication app = new TrayApplication(configPath);
+                bool refreshed = await app.RefreshAsync();
+
+                Assert.Equal((false, expectedError), (refreshed, app.GetLastFetchErrorForUi()));
+            }
+            finally
+            {
+                if (Directory.Exists(tempDirectory))
+                {
+                    Directory.Delete(tempDirectory, recursive: true);
+                }
+            }
+        }
+
+        [Fact]
         public async Task CancellingWorkIqRefreshStopsTheChildProcess()
         {
             string tempDirectory = Path.Combine(Path.GetTempPath(), "cun_workiq_" + Guid.NewGuid().ToString("N"));
